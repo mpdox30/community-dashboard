@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+#root { min-height: 100vh; }
+
+/* ── PDF / print export ──────────────────────────────
+   pitfall §6: #print-report ต้องซ่อนด้วย @media screen เท่านั้น
+   (ห้ามใช้ conditional render — React จะไม่ mount DOM ตอนสั่งพิมพ์) */
+@media screen {
+  #print-report { display: none; }
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #print-report, #print-report * { visibility: visible; }
+  svg, svg * { visibility: visible !important; }
+  #print-report {
+    position: absolute; left: 0; top: 0; width: 100%;
+    padding: 16px;
+  }
+  #print-report .print-diagram { page-break-before: always; }
+}
