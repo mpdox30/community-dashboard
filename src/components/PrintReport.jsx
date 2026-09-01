@@ -60,7 +60,7 @@ export default function PrintReport({ sources, snap, tambon, theme }) {
         </div>
       )}
 
-      <img className="print-diagram" src="/assets/water-network.png" alt="ผังน้ำแม่นาเรือ" style={{ width: "100%", marginTop: 16 }} />
+      <img className="print-diagram" src={`${import.meta.env.BASE_URL}assets/water-network.png`} alt="ผังน้ำแม่นาเรือ" style={{ width: "100%", marginTop: 16 }} />
 
       <div style={{ marginTop: 10, fontSize: 9, color: C.muted, textAlign: "center" }}>
         พิมพ์จากระบบติดตามสถานการณ์น้ำ {tambon?.name_th} — {new Date().toLocaleDateString("th-TH")}
