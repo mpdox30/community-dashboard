@@ -38,7 +38,7 @@ export default function ManagerView({ sources, snap, tambon, ts, rainDaily, rain
       </div>
 
       {tab === "overview" && <TabOverview sources={sources} theme={theme} />}
-      {tab === "trend"    && <TabTrend storageSources={storageSources} ts={ts} rainMonthly={rainMonthly} theme={theme} />}
+      {tab === "trend"    && <TabTrend storageSources={storageSources} ts={ts} rainDaily={rainDaily} rainMonthly={rainMonthly} theme={theme} />}
       {tab === "rain"     && <TabRainfall rainDaily={rainDaily} rainMonthly={rainMonthly} rainYearly={rainYearly}
                                            rainForecast={rainForecast} rainLoading={rainLoading} rainError={rainError} theme={theme} />}
       {tab === "risk"     && <TabRisk storageSources={storageSources} theme={theme} />}

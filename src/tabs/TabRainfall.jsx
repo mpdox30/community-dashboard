@@ -6,13 +6,26 @@ const PERIOD_DAYS = { "30d": 30, "90d": 90, "1y": 365, all: Infinity };
 
 export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainForecast, rainLoading, rainError, theme }) {
   const { C, FONT } = theme;
-  const [view, setView] = useState("daily");     // daily | monthly | yearly | forecast
+  const [view, setView] = useState("daily");     // daily | cum3 | monthly | yearly | forecast
   const [period, setPeriod] = useState("90d");
 
   const filteredDaily = useMemo(() => {
     const n = PERIOD_DAYS[period];
     return n === Infinity ? rainDaily : rainDaily.slice(-n);
   }, [rainDaily, period]);
+
+  // ── สะสม 3 วัน (rolling) — เรียงตามวันเดียวกับรายวัน ──
+  const cum3Daily = useMemo(() => {
+    return rainDaily.map((r, i) => {
+      let sum = 0;
+      for (let k = Math.max(0, i - 2); k <= i; k++) sum += rainDaily[k]?.rain ?? 0;
+      return { d: r.d, iso: r.iso, rain: Math.round(sum * 10) / 10 };
+    });
+  }, [rainDaily]);
+  const filteredCum3 = useMemo(() => {
+    const n = PERIOD_DAYS[period];
+    return n === Infinity ? cum3Daily : cum3Daily.slice(-n);
+  }, [cum3Daily, period]);
 
   const monthlyArr = useMemo(() =>
     Object.entries(rainMonthly).sort(([a], [b]) => a.localeCompare(b)).map(([ym, mm]) => ({ ym, mm })),
@@ -46,14 +59,14 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
-        {[{ id: "daily", label: "รายวัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }, { id: "forecast", label: "พยากรณ์ 16 วัน" }].map(v => (
+        {[{ id: "daily", label: "รายวัน" }, { id: "cum3", label: "สะสม 3 วัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }, { id: "forecast", label: "พยากรณ์ 16 วัน" }].map(v => (
           <button key={v.id} onClick={() => setView(v.id)} style={{
             border: `1.5px solid ${view === v.id ? C.sky : "#cbd5e1"}`, background: view === v.id ? "#e0f2fe" : "#fff",
             borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: FONT,
             fontWeight: view === v.id ? 700 : 400,
           }}>{v.label}</button>
         ))}
-        {view === "daily" && (
+        {(view === "daily" || view === "cum3") && (
           <select value={period} onChange={e => setPeriod(e.target.value)} style={{ marginLeft: "auto", fontFamily: FONT, fontSize: 12, borderRadius: 8, border: "1.5px solid #cbd5e1", padding: "4px 8px" }}>
             <option value="30d">30 วัน</option>
             <option value="90d">90 วัน</option>
@@ -73,6 +86,16 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
               <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Bar dataKey="rain" name="ฝน (มม.)">
                 {filteredDaily.map((r, i) => <Cell key={i} fill={getRainThreshold(r.rain)?.color ?? "#93c5fd"} />)}
+              </Bar>
+            </BarChart>
+          ) : view === "cum3" ? (
+            <BarChart data={filteredCum3}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="d" fontSize={9} minTickGap={20} />
+              <YAxis fontSize={11} unit="mm" />
+              <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} formatter={v => [`${v} มม.`, "ฝนสะสม 3 วัน"]} />
+              <Bar dataKey="rain" name="ฝนสะสม 3 วัน (มม.)">
+                {filteredCum3.map((r, i) => <Cell key={i} fill={getRainThreshold(r.rain)?.color ?? "#93c5fd"} />)}
               </Bar>
             </BarChart>
           ) : view === "monthly" ? (
@@ -108,7 +131,7 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
         )}
       </div>
 
-      {view === "daily" && (
+      {(view === "daily" || view === "cum3") && (
         <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.muted, fontFamily: FONT }}>
           <span style={{ fontWeight: 700 }}>ระดับฝน (สสน.):</span>
           {RAIN_THRESHOLDS.map(t => (

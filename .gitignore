@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env.nakhon-pa-mak
 
 # Editor directories and files
 .vscode/*
@@ -27,3 +28,9 @@ dist-ssr
 ENGINEERING_NOTES.md
 ONBOARDING_NEW_TAMBON.md
 SHARED_SUPABASE_PROJECT_RULES.md
+GAP_ANALYSIS_PROTOTYPE_PARITY.md
+MIGRATION_NAKHON_PA_MAK.md
+DATA_DISCOVERY_NAKHON_PA_MAK.md
+SUPABASE_IMPORT_PLAN_NAKHON_PA_MAK.md
+waterdashboardsheetsaudit.md
+ROLLOUT_PLAN_NAKHON_PA_MAK.md

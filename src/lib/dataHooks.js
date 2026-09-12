@@ -1,6 +1,25 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "./supabase";
 
+// PostgREST จำกัดจำนวนแถวต่อ request ไว้ที่ 1000 แถว (db.max_rows) โดย default
+// ถ้า query ไหนมีโอกาสเกิน 1000 แถว (เช่นข้อมูลรายวันสะสมมาหลายปี) ต้อง page
+// ด้วย .range() วนจนกว่าจะได้แถวน้อยกว่า pageSize ไม่งั้นข้อมูลช่วงท้าย (ล่าสุด)
+// จะถูกตัดหายไปเงียบๆ โดยไม่มี error ใดๆ (สาเหตุของบั๊กข้อมูลฝนหายช่วงหลัง —
+// ตรวจพบและแก้แล้วใน water-dashboard/App.jsx ของนครป่าหมาก ใช้ pattern เดียวกันที่นี่)
+async function supabaseFetchAllPages(buildQuery, pageSize = 1000) {
+  let allRows = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return allRows;
+}
+
 /* ─────────────────────────────────────────────
    ตำบล (multi-tenant root)
 ───────────────────────────────────────────── */
@@ -90,6 +109,7 @@ export function useSources(tambonId) {
             pct: pct != null ? Math.round(pct * 10) / 10 : null,
             m3,
             isolated: s.is_isolated,
+            curveNodeKey: s.curve_node_key ?? null, // ใช้จับคู่กับ source_ref บนผังน้ำ (nw_diagram_current_nodes)
             catchmentKm2: s.catchment_area_km2 != null ? Number(s.catchment_area_km2) : null,
             beneficiaryRai: s.beneficiary_agri_rai != null ? Number(s.beneficiary_agri_rai) : null,
             beneficiaryPopulation: s.beneficiary_population != null ? Number(s.beneficiary_population) : null,
@@ -179,15 +199,19 @@ export function useRainfall(tambonId) {
     if (!tambonId) return;
     let alive = true;
     setLoading(true);
-    supabase
-      .from("v_rainfall_daily_tambon")
-      .select("reading_date, rainfall_mm")
-      .eq("tambon_id", tambonId)
-      .order("reading_date", { ascending: true })
-      .then(({ data, error }) => {
+    // ข้อมูลฝนรายวันสะสมนานขึ้นเรื่อยๆ ต้อง page กันเกิน 1000 แถว (db.max_rows) —
+    // เดิม query นี้ไม่มี .range()/.limit() จึงถูก PostgREST ตัดเหลือ 1000 แถวแรกสุด
+    // (เก่าสุด) เท่านั้น ทำให้ข้อมูลฝนช่วงหลังหายไปทั้งหมด (ฝนสะสม 7 วัน / กราฟแนวโน้ม
+    // เดือนท้ายๆ หาย)
+    supabaseFetchAllPages(() =>
+      supabase
+        .from("v_rainfall_daily_tambon")
+        .select("reading_date, rainfall_mm")
+        .eq("tambon_id", tambonId)
+        .order("reading_date", { ascending: true })
+    )
+      .then(rows => {
         if (!alive) return;
-        if (error) { setError(error.message); return; }
-        const rows = data ?? [];
         const daily = rows.map(r => {
           const d = new Date(r.reading_date + "T00:00:00");
           return { d: `${d.getDate()} ${TH_MON_R[d.getMonth() + 1]}`, iso: r.reading_date, rain: r.rainfall_mm != null ? Number(r.rainfall_mm) : 0 };
@@ -209,6 +233,7 @@ export function useRainfall(tambonId) {
         setRainYearly(yearMap);
         setError(null);
       })
+      .catch(err => { if (alive) setError(err.message); })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [tambonId]);
@@ -255,6 +280,41 @@ export function useRainForecast(lat, lon) {
   }, [lat, lon]);
 
   return { rainForecast, rainLoading, rainError };
+}
+
+/* ─────────────────────────────────────────────
+   ผังน้ำจากระบบ `nw` (Cytoscape) — อ่านผ่าน view สาธารณะที่ "มีอยู่แล้ว" คือ
+   nw_diagram_current_nodes / nw_diagram_current_edges (เวอร์ชัน is_current=true
+   เท่านั้น) — นี่คือ view ตัวเดียวกับที่เว็บต้นแบบ (fluffy-monstera-2dd0a8.netlify.app)
+   ใช้งานจริงอยู่แล้วตอนนี้ ไม่ได้สร้าง view ใหม่ซ้ำซ้อน — อ่านอย่างเดียว ไม่เขียน/
+   แก้ไขอะไรกลับเข้า schema nw ทั้งสิ้น (เป็นของทีมอื่น)
+   ตำบลที่ยังไม่มีผังแบบนี้ (เช่นแม่นาเรือตอนนี้) จะได้ nodes=[] กลับมา
+   แล้วฝั่ง UI (WaterFlowDiagramAuto) จะ fallback ไปใช้ผัง SVG เดิมเอง
+───────────────────────────────────────────── */
+export function useWaterNetworkDiagram(tambonId) {
+  const [nodes, setNodes] = useState(null);
+  const [edges, setEdges] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!tambonId) { setNodes([]); setEdges([]); setLoading(false); return; }
+    let alive = true;
+    setLoading(true);
+    Promise.all([
+      supabase.from("nw_diagram_current_nodes").select("*").eq("tambon_id", tambonId),
+      supabase.from("nw_diagram_current_edges").select("*").eq("tambon_id", tambonId),
+    ])
+      .then(([nodeRes, edgeRes]) => {
+        if (!alive) return;
+        setNodes(nodeRes.error ? [] : (nodeRes.data ?? []));
+        setEdges(edgeRes.error ? [] : (edgeRes.data ?? []));
+      })
+      .catch(() => { if (alive) { setNodes([]); setEdges([]); } })
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [tambonId]);
+
+  return { nodes, edges, loading };
 }
 
 /* ─────────────────────────────────────────────

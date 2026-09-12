@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import SourceCard from "./SourceCard";
-import WaterFlowDiagram from "./WaterFlowDiagram";
+import WaterFlowDiagramAuto from "./WaterFlowDiagramAuto";
 
 /* ─────────────────────────────────────────────
    ผังน้ำ — ใช้ไฟล์ Mae_Na_Rua_water_diagram.svg ที่ผู้ใช้จัดทำขึ้น
@@ -8,7 +8,7 @@ import WaterFlowDiagram from "./WaterFlowDiagram";
    วัดพิกัดตรงจาก SVG source และตรวจสอบไขว้กับไฟล์ "ชี้เป้าแหล่งน้ำ"
    ที่ผู้ใช้วาดเส้นสีแดงกำกับไว้แล้ว — ครบทั้ง 8 แหล่งเก็บกัก
 ───────────────────────────────────────────── */
-export default function WaterNetworkPanel({ sources, theme, selectedId, onSelect }) {
+export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId, onSelect }) {
   const { C, FONT } = theme;
   const [filterMoo, setFilterMoo] = useState("all");
 
@@ -25,7 +25,7 @@ export default function WaterNetworkPanel({ sources, theme, selectedId, onSelect
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
-        <WaterFlowDiagram sources={sources} theme={theme} selectedId={selectedId} onSelect={onSelect} />
+        <WaterFlowDiagramAuto tambonId={tambonId} sources={sources} theme={theme} selectedId={selectedId} onSelect={onSelect} />
         <div style={{ padding: "8px 2px", fontSize: 11, color: C.muted, fontFamily: FONT }}>
           กล่องสี % ทับตำแหน่งแหล่งเก็บกักบนผังน้ำ — กดเพื่อดูรายละเอียด (ฝาย/เช็คดำไม่แสดง % เนื่องจากไม่มีการติดตาม)
         </div>

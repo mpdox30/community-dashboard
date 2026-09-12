@@ -25,21 +25,21 @@ const VB_H = 2246;
 // shape: "triangle" = อ่างเก็บน้ำ (ตรงกับสัญลักษณ์ Reservoir บนผัง),
 //        "rect"     = แก้มลิง/สระ (ตรงกับกล่อง Name/Capacity บนผัง)
 const SVG_NODE_BOXES = [
-  // อ่างเก็บน้ำแม่นาเรือ
+  // MNR-01 อ่างเก็บน้ำแม่นาเรือ
   { id: "195dfdb8-501c-4183-8f98-95d43a900fda", x: 870, y: 201.9, w: 103, h: 108, shape: "triangle" },
-  // อ่างเก็บน้ำวิทยาลัยเกษตร (Phayao C.A.T)
+  // MNR-02 อ่างเก็บน้ำวิทยาลัยเกษตร (PYCAT)
   { id: "798b5589-b76b-4288-91e0-a4e18f3e3935", x: 1060, y: 362.9, w: 102, h: 108, shape: "triangle" },
-  // แก้มลิงม่อนโป่งหิน (Pong Hin Noi)
+  // MNR-06 แก้มลิงโป่งหินน้อย (Pong Hin Noi) — เดิมชื่อ "แก้มลิงม่อนโป่งหิน" เปลี่ยนตามไฟล์ source code 2026-09-12
   { id: "ecbe9b4d-35d0-4c91-bfea-398b9b713b2b", x: 1439, y: 474.9, w: 177, h: 110, shape: "rect" },
-  // อ่างเก็บน้ำห้วยถ้ำ
+  // MNR-03 อ่างเก็บน้ำห้วยถ้ำ
   { id: "344e9355-808d-4c16-84a2-9625d90be011", x: 883, y: 804.8, w: 102, h: 109, shape: "triangle" },
-  // แก้มลิงร่องแล้ง (Rong Soom)
+  // MNR-07 แก้มลิงร่องซุ้ม (Rong Sum) — เดิมชื่อ "แก้มลิงร่องแล้ง" เปลี่ยนตามไฟล์ source code 2026-09-12
   { id: "4f99b0d3-5218-4829-aa12-76a4888d26a0", x: 1399, y: 1260.7, w: 177, h: 109, shape: "rect" },
-  // อ่างเก็บน้ำห้วยโซ้
+  // MNR-04 อ่างเก็บน้ำห้วยโซ้
   { id: "0fd9ed88-9e31-4304-91d9-e0d136709368", x: 887, y: 1439.6, w: 102, h: 108, shape: "triangle" },
-  // อ่างเก็บน้ำห้วยจำตุ้ม
+  // MNR-05 อ่างเก็บน้ำห้วยจำตุ้ม
   { id: "e81ea50c-3274-430b-9e25-e6e5684f50cd", x: 836, y: 1952.5, w: 102, h: 109, shape: "triangle" },
-  // สระห้วยน้ำขาว (Huai Nam Khao)
+  // MNR-08 แก้มลิงห้วยน้ำขาว (Huai Nam Kao) — เดิมชื่อ "สระห้วยน้ำขาว" เปลี่ยนตามไฟล์ source code 2026-09-12
   { id: "4f950fc6-54fa-4c5a-9686-8b93ace8a670", x: 1179, y: 2084.5, w: 177, h: 110, shape: "rect" },
 ];
 
@@ -62,6 +62,23 @@ const SVG_INNER = (() => {
 export default function WaterFlowDiagram({ sources, theme, selectedId, onSelect }) {
   const { C, FONT } = theme;
   const srcMap = Object.fromEntries(sources.map(s => [s.id, s]));
+
+  // ผังนี้ hardcode พิกัดกล่องต่อ source_id ของแม่นาเรือเท่านั้น (ดู SVG_NODE_BOXES ด้านบน)
+  // ตำบลอื่นที่ยังไม่มีผังของตัวเอง (เช่นนครป่าหมากก่อนเฟส Cytoscape) จะไม่มี source_id ไหนตรงเลย —
+  // กันไม่ให้โชว์รูปผังน้ำของแม่นาเรือแบบไม่มีกล่องทับ (ดูเหมือนข้อมูลผิดตำบล) ด้วยการโชว์ placeholder แทน
+  const hasMatchingDiagram = sources.some(s => SVG_NODE_BOXES.some(b => b.id === s.id));
+  if (!hasMatchingDiagram) {
+    return (
+      <div style={{
+        borderRadius: 12, border: `1.5px solid ${C.border}`, background: "#f8fafc",
+        padding: "48px 20px", textAlign: "center", fontFamily: FONT,
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 10 }}>🗺️</div>
+        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 4 }}>ผังน้ำแบบอินเทอร์แอกทีฟกำลังจัดทำ</div>
+        <div style={{ fontSize: 12, color: C.muted }}>ดูรายละเอียดแต่ละแหล่งน้ำได้จากการ์ดด้านล่าง</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{

@@ -31,7 +31,7 @@ export default function VillagerView({ sources, snap, tambon, theme }) {
 
       {tab === "map"
         ? <WaterMap sources={sources} tambon={tambon} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />
-        : <WaterNetworkPanel sources={sources} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />}
+        : <WaterNetworkPanel sources={sources} tambonId={tambon?.tambon_id} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />}
 
       <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
         <button onClick={() => window.print()} style={{

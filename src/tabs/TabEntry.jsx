@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { checkGatePassword, calcLevelPct, submitWaterLevelReading } from "../lib/dataHooks";
 
+/* ─────────────────────────────────────────────
+   กรอกข้อมูลระดับน้ำ — ทุกแหล่งพร้อมกันในหน้าเดียว (ตามต้นแบบ)
+   ต่างจากต้นแบบตรงที่ยังคงเช็ครหัสผ่านฝั่งเซิร์ฟเวอร์ผ่าน RPC (bcrypt)
+   เหมือนเดิมทุกประการ — ไม่ลดระดับความปลอดภัยกลับไปเป็น plaintext ฝั่ง client
+   ส่งข้อมูลโดยวนเรียก RPC submit_water_level_reading เดิมทีละแหล่งที่กรอกไว้
+   (ไม่ต้องเขียน RPC ใหม่ — ตาราง water_level_daily upsert ปลอดภัยอยู่แล้วต่อ (source_id, reading_date))
+───────────────────────────────────────────── */
 export default function TabEntry({ storageSources, tambonId, theme, onSubmitted }) {
   const { C, FONT, BRAND_GRAD } = theme;
   const [pwInput, setPwInput] = useState("");
@@ -8,14 +15,11 @@ export default function TabEntry({ storageSources, tambonId, theme, onSubmitted 
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  const [sourceId, setSourceId] = useState(storageSources[0]?.id ?? "");
-  const [levelValue, setLevelValue] = useState("");
-  const [levelPct, setLevelPct] = useState(null);
-  const [pctLoading, setPctLoading] = useState(false);
   const [recorder, setRecorder] = useState("");
   const [obsDate, setObsDate] = useState(new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState("idle");
-  const [errMsg, setErrMsg] = useState("");
+  // rows: { [sourceId]: { value: string, pct: number|null, pctLoading: bool, status: 'idle'|'saving'|'success'|'error', errMsg } }
+  const [rows, setRows] = useState({});
+  const [phase, setPhase] = useState("form"); // form | submitting | done
 
   const handleAuth = async () => {
     setChecking(true);
@@ -27,34 +31,53 @@ export default function TabEntry({ storageSources, tambonId, theme, onSubmitted 
     finally { setChecking(false); }
   };
 
-  const handleLevelChange = async (val) => {
-    setLevelValue(val);
-    setLevelPct(null);
+  const getRow = (id) => rows[id] ?? { value: "", pct: null, pctLoading: false, status: "idle", errMsg: "" };
+
+  const handleValueChange = async (sourceId, val) => {
+    setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), value: val, pct: null, status: "idle" } }));
     const num = parseFloat(val);
     if (val === "" || isNaN(num)) return;
-    setPctLoading(true);
+    setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), value: val, pctLoading: true } }));
     try {
       const pct = await calcLevelPct(sourceId, num);
-      setLevelPct(pct);
-    } catch { /* เงียบ — ไม่มี curve/calibration ก็ยังบันทึกระดับ (ม.) ได้ */ }
-    finally { setPctLoading(false); }
+      setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), value: val, pct, pctLoading: false } }));
+    } catch {
+      setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), value: val, pctLoading: false } }));
+    }
   };
 
-  const handleSubmit = async () => {
+  const filledSourceIds = storageSources.map(s => s.id).filter(id => getRow(id).value !== "");
+
+  const handleSubmitAll = async () => {
     if (!recorder.trim()) { alert("กรุณาระบุชื่อผู้บันทึก"); return; }
-    if (!levelValue) { alert("กรุณากรอกระดับน้ำ"); return; }
-    setStatus("loading"); setErrMsg("");
-    try {
-      const res = await submitWaterLevelReading({
-        tambonId, sourceId, readingDate: obsDate,
-        levelValue: parseFloat(levelValue), levelPct,
-        enteredBy: recorder, password: pwInput,
-      });
-      if (res?.success) setStatus("success");
-      else { setStatus("error"); setErrMsg(res?.error ?? "ไม่ทราบสาเหตุ"); }
-    } catch (err) {
-      setStatus("error"); setErrMsg(err.message ?? "เชื่อมต่อไม่ได้");
+    if (filledSourceIds.length === 0) { alert("กรุณากรอกระดับน้ำอย่างน้อย 1 แหล่ง"); return; }
+
+    setPhase("submitting");
+    for (const sourceId of filledSourceIds) {
+      setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), status: "saving" } }));
+      try {
+        const row = getRow(sourceId);
+        const res = await submitWaterLevelReading({
+          tambonId, sourceId, readingDate: obsDate,
+          levelValue: parseFloat(row.value), levelPct: row.pct,
+          enteredBy: recorder, password: pwInput,
+        });
+        if (res?.success) {
+          setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), status: "success" } }));
+        } else {
+          setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), status: "error", errMsg: res?.error ?? "ไม่ทราบสาเหตุ" } }));
+        }
+      } catch (err) {
+        setRows(r => ({ ...r, [sourceId]: { ...getRow(sourceId), status: "error", errMsg: err.message ?? "เชื่อมต่อไม่ได้" } }));
+      }
     }
+    setPhase("done");
+  };
+
+  const resetForm = () => {
+    setRows({});
+    setPhase("form");
+    onSubmitted?.();
   };
 
   if (!authorized) {
@@ -81,63 +104,82 @@ export default function TabEntry({ storageSources, tambonId, theme, onSubmitted 
     );
   }
 
-  if (status === "success") return (
-    <div style={{ textAlign: "center", padding: "40px 20px", fontFamily: FONT }}>
-      <div style={{ fontSize: 56 }}>✅</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: "#15803d", marginTop: 12 }}>บันทึกสำเร็จ!</div>
-      <div style={{ color: C.muted, marginTop: 8, fontSize: 14 }}>ข้อมูลถูกบันทึกลงระบบแล้ว</div>
-      <button onClick={() => { setStatus("idle"); setLevelValue(""); setLevelPct(null); setRecorder(""); onSubmitted?.(); }} style={{
-        marginTop: 20, background: C.teal, color: "#fff", border: "none", borderRadius: 8,
-        padding: "8px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
-      }}>กรอกข้อมูลใหม่</button>
-    </div>
-  );
+  if (phase === "done") {
+    const successCount = filledSourceIds.filter(id => getRow(id).status === "success").length;
+    const errorIds = filledSourceIds.filter(id => getRow(id).status === "error");
+    return (
+      <div style={{ textAlign: "center", padding: "40px 20px", fontFamily: FONT, maxWidth: 480 }}>
+        <div style={{ fontSize: 56 }}>{errorIds.length === 0 ? "✅" : "⚠️"}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: errorIds.length === 0 ? "#15803d" : "#c2410c", marginTop: 12 }}>
+          บันทึกสำเร็จ {successCount} / {filledSourceIds.length} แหล่ง
+        </div>
+        {errorIds.length > 0 && (
+          <div style={{ marginTop: 14, textAlign: "left", background: "#fef2f2", border: "1.5px solid #ef4444", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#b91c1c" }}>
+            {errorIds.map(id => {
+              const s = storageSources.find(x => x.id === id);
+              return <div key={id}>❌ {s?.name}: {getRow(id).errMsg}</div>;
+            })}
+          </div>
+        )}
+        <button onClick={resetForm} style={{
+          marginTop: 20, background: C.teal, color: "#fff", border: "none", borderRadius: 8,
+          padding: "8px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+        }}>กรอกข้อมูลใหม่</button>
+      </div>
+    );
+  }
+
+  const submitting = phase === "submitting";
 
   return (
-    <div style={{ maxWidth: 480, fontFamily: FONT }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 16 }}>📝 บันทึกระดับน้ำ</div>
+    <div style={{ maxWidth: 640, fontFamily: FONT }}>
+      <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 16 }}>📝 บันทึกระดับน้ำ — กรอกได้ทุกแหล่งในหน้าเดียว</div>
 
-      {status === "error" && (
-        <div style={{ background: "#fef2f2", border: "1.5px solid #ef4444", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#b91c1c" }}>
-          ❌ ส่งข้อมูลไม่สำเร็จ: {errMsg}
-        </div>
-      )}
-
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>แหล่งน้ำ *</label>
-        <select value={sourceId} onChange={e => { setSourceId(e.target.value); setLevelPct(null); }}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontFamily: FONT, fontSize: 14 }}>
-          {storageSources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>ชื่อผู้บันทึก *</label>
-          <input value={recorder} onChange={e => setRecorder(e.target.value)} placeholder="ชื่อ-สกุล"
+          <input value={recorder} onChange={e => setRecorder(e.target.value)} placeholder="ชื่อ-สกุล" disabled={submitting}
             style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontFamily: FONT, fontSize: 14, boxSizing: "border-box" }} />
         </div>
         <div>
           <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>วันที่วัดน้ำ *</label>
-          <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)}
+          <input type="date" value={obsDate} onChange={e => setObsDate(e.target.value)} disabled={submitting}
             style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontFamily: FONT, fontSize: 14, boxSizing: "border-box" }} />
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>ระดับน้ำ (เมตร) *</label>
-        <input type="number" step="0.01" value={levelValue} onChange={e => handleLevelChange(e.target.value)}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontFamily: FONT, fontSize: 14, boxSizing: "border-box" }} />
-        {pctLoading && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>กำลังคำนวณ %…</div>}
-        {levelPct != null && !pctLoading && (
-          <div style={{ fontSize: 12, color: C.navy, marginTop: 4 }}>≈ {Math.round(levelPct * 10) / 10}% ของความจุ</div>
-        )}
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+        กรอกเฉพาะแหล่งที่วัดได้จริง — เว้นว่างแหล่งที่ยังไม่ได้วัดในรอบนี้ไว้ได้ (จะไม่ถูกบันทึกทับข้อมูลเดิม)
       </div>
 
-      <button onClick={handleSubmit} disabled={status === "loading"} style={{
-        background: status === "loading" ? "#94a3b8" : BRAND_GRAD, color: "#fff", border: "none", borderRadius: 8,
-        padding: "10px 32px", fontSize: 15, fontWeight: 700, cursor: status === "loading" ? "not-allowed" : "pointer",
-      }}>{status === "loading" ? "⏳ กำลังส่ง…" : "✅ บันทึกข้อมูล"}</button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        {storageSources.map(s => {
+          const row = getRow(s.id);
+          const statusIcon = { idle: null, saving: "⏳", success: "✅", error: "❌" }[row.status];
+          return (
+            <div key={s.id} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+              background: row.status === "error" ? "#fef2f2" : row.status === "success" ? "#f0fdf4" : C.card,
+              border: `1.5px solid ${row.status === "error" ? "#fca5a5" : C.border}`, borderRadius: 8,
+            }}>
+              <div style={{ flex: "1 1 140px", fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+              <input type="number" step="0.01" value={row.value} disabled={submitting}
+                onChange={e => handleValueChange(s.id, e.target.value)}
+                placeholder="ระดับ (ม.)"
+                style={{ width: 110, padding: "6px 8px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontFamily: FONT, fontSize: 13, boxSizing: "border-box" }} />
+              <div style={{ width: 90, fontSize: 11, color: C.muted, textAlign: "right" }}>
+                {row.pctLoading ? "กำลังคำนวณ…" : row.pct != null ? `≈ ${Math.round(row.pct * 10) / 10}%` : ""}
+              </div>
+              {statusIcon && <div style={{ fontSize: 14 }}>{statusIcon}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      <button onClick={handleSubmitAll} disabled={submitting} style={{
+        background: submitting ? "#94a3b8" : BRAND_GRAD, color: "#fff", border: "none", borderRadius: 8,
+        padding: "10px 32px", fontSize: 15, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer",
+      }}>{submitting ? "⏳ กำลังบันทึก…" : `✅ บันทึกข้อมูล (${filledSourceIds.length} แหล่ง)`}</button>
     </div>
   );
 }
