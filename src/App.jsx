@@ -99,7 +99,7 @@ export default function App() {
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 16px 40px" }}>
         {mode === "villager"
-          ? <VillagerView sources={sources} snap={snap} tambon={tambon} theme={theme} />
+          ? <VillagerView sources={sources} snap={snap} tambon={tambon} theme={theme} ts={ts} />
           : <ManagerView
               sources={sources} snap={snap} tambon={tambon} ts={ts}
               rainDaily={rainDaily} rainMonthly={rainMonthly} rainYearly={rainYearly}

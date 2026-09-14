@@ -318,6 +318,81 @@ export function useWaterNetworkDiagram(tambonId) {
 }
 
 /* ─────────────────────────────────────────────
+   สถานีโทรมาตร (HII) — อ่านผ่าน v_hii_feed_stations_public / v_water_level_raw_public
+   (public view ตัวเดียวกับที่เว็บต้นแบบนครป่าหมากใช้จริงอยู่แล้วสำหรับสถานี VLGE12 —
+   ดู resolveVlge12SourceId()/loadVlge12TelemetryFromSupabase() ใน App.jsx ต้นแบบ
+   ไม่ได้สร้าง query ใหม่ที่ไม่เคยผ่านการ debug — พอร์ต logic เดิมมาตรงๆ)
+
+   ต่างจากต้นฉบับ 1 จุด: ต้นแบบมีสถานีโทรมาตรเดียว (VLGE12) ฝัง station code
+   ไว้ตรงๆ ในโค้ด ส่วนระบบนี้เป็น multi-tenant และแม่นาเรือมีหลายสถานีพร้อมกัน
+   (RES002/RES004/RES005/RES006 ผูกกับ data_feeds ของแต่ละแหล่งน้ำอยู่แล้ว) —
+   จึงดึงทุกสถานีที่ active ของตำบลนั้นพร้อมกัน คืนเป็น map keyed ด้วย
+   external_station_code (รหัสสถานี) แทนที่จะ resolve ทีละสถานี
+───────────────────────────────────────────── */
+export function useTelemetry(sourceIds) {
+  const [telemetryByCode, setTelemetryByCode] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!sourceIds || sourceIds.length === 0) { setTelemetryByCode({}); setLoading(false); return; }
+    let alive = true;
+    setLoading(true);
+
+    const round2 = v => (v != null ? Math.round(Number(v) * 100) / 100 : null);
+
+    supabase
+      .from("v_hii_feed_stations_public")
+      .select("source_id, external_station_code")
+      .eq("feed_type", "telemetry_hii")
+      .eq("is_active", true)
+      .in("source_id", sourceIds)
+      .then(async ({ data: feeds, error }) => {
+        if (!alive) return;
+        if (error || !feeds || feeds.length === 0) { setTelemetryByCode({}); return; }
+
+        const sinceIso = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+        const entries = await Promise.all(feeds.filter(f => f.external_station_code).map(async feed => {
+          const { data: rows } = await supabase
+            .from("v_water_level_raw_public")
+            .select("measured_at, level_raw, left_bank_msl, right_bank_msl, ground_level_msl")
+            .eq("source_id", feed.source_id)
+            .gte("measured_at", sinceIso)
+            .order("measured_at");
+          if (!rows || rows.length === 0) return [feed.external_station_code, null];
+
+          const last = rows[rows.length - 1];
+          const prev = rows.length >= 2 ? rows[rows.length - 2] : null;
+          const currentLevel = round2(last.level_raw);
+          const prevLevel = round2(prev?.level_raw);
+          const leftBank = round2(last.left_bank_msl);
+          const rightBank = round2(last.right_bank_msl);
+          const groundLevel = round2(last.ground_level_msl);
+
+          return [feed.external_station_code, {
+            stationCode: feed.external_station_code,
+            currentLevel, leftBank, rightBank, groundLevel,
+            measureDatetime: last.measured_at,
+            prevDiff: (currentLevel != null && prevLevel != null) ? round2(currentLevel - prevLevel) : null,
+            distLeftBank: (leftBank != null && currentLevel != null) ? round2(leftBank - currentLevel) : null,
+            distRightBank: (rightBank != null && currentLevel != null) ? round2(rightBank - currentLevel) : null,
+            depthFromGround: (currentLevel != null && groundLevel != null) ? round2(currentLevel - groundLevel) : null,
+            series: rows.map(r => ({ t: r.measured_at, level: round2(r.level_raw) })),
+          }];
+        }));
+
+        if (!alive) return;
+        setTelemetryByCode(Object.fromEntries(entries.filter(([, v]) => v)));
+      })
+      .catch(() => { if (alive) setTelemetryByCode({}); })
+      .finally(() => alive && setLoading(false));
+
+    return () => { alive = false; };
+  }, [JSON.stringify(sourceIds)]);
+
+  return { telemetryByCode, loading };
+}
+
+/* ─────────────────────────────────────────────
    password gate + บันทึกระดับน้ำ — ผ่าน RPC ที่มี SECURITY DEFINER
    (server ตรวจรหัสผ่านเอง client ไม่เคยเห็น hash)
 ───────────────────────────────────────────── */

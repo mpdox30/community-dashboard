@@ -58,8 +58,13 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
         ))}
       </div>
 
+      {/* ── ส่วนที่ 1: ฝนสะสม/ฝนย้อนหลัง (รายวัน / สะสม 3 วัน / รายเดือน / รายปี) ── */}
+      <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 8, fontFamily: FONT }}>
+        🌧️ ฝนสะสม (ข้อมูลย้อนหลัง)
+      </div>
+
       <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
-        {[{ id: "daily", label: "รายวัน" }, { id: "cum3", label: "สะสม 3 วัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }, { id: "forecast", label: "พยากรณ์ 16 วัน" }].map(v => (
+        {[{ id: "daily", label: "รายวัน" }, { id: "cum3", label: "สะสม 3 วัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }].map(v => (
           <button key={v.id} onClick={() => setView(v.id)} style={{
             border: `1.5px solid ${view === v.id ? C.sky : "#cbd5e1"}`, background: view === v.id ? "#e0f2fe" : "#fff",
             borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: FONT,
@@ -106,7 +111,7 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
               <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Bar dataKey="mm" name="ฝนรวมรายเดือน (มม.)" fill="#0369a1" />
             </BarChart>
-          ) : view === "yearly" ? (
+          ) : (
             <BarChart data={yearlyArr}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="y" fontSize={11} />
@@ -114,30 +119,48 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
               <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Bar dataKey="mm" name="ฝนรวมรายปี (มม.)" fill="#0c4a6e" />
             </BarChart>
-          ) : (
-            <ComposedChart data={rainForecast} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="label" fontSize={10} />
-              <YAxis yAxisId="mm" fontSize={11} unit="mm" />
-              <YAxis yAxisId="prob" orientation="right" domain={[0, 100]} fontSize={11} unit="%" />
-              <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }}
-                formatter={(v, n) => n === "โอกาสฝน %" ? [`${v}%`, n] : [`${v} มม.`, n]} />
-              <ReferenceLine yAxisId="mm" y={35} stroke="#d97706" strokeDasharray="3 2"
-                label={{ value: "ฝนหนัก 35มม.", fill: "#d97706", fontSize: 9 }} />
-              <Bar yAxisId="mm" dataKey="rain" name="ฝนคาดการณ์ (มม.)">
-                {rainForecast.map((r, i) => <Cell key={i} fill={getRainThreshold(r.rain)?.color ?? "#38bdf8"} />)}
-              </Bar>
-              <Line yAxisId="prob" type="monotone" dataKey="prob" name="โอกาสฝน %"
-                stroke="#7c3aed" strokeWidth={2} dot={false} />
-            </ComposedChart>
           )}
         </ResponsiveContainer>
-        {view === "forecast" && rainError && (
+      </div>
+
+      <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.muted, fontFamily: FONT }}>
+        <span style={{ fontWeight: 700 }}>ระดับฝน (สสน.):</span>
+        {RAIN_THRESHOLDS.map(t => (
+          <span key={t.level} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, background: t.color, display: "inline-block", borderRadius: 2 }} />{t.label}
+          </span>
+        ))}
+      </div>
+
+      {/* ── ส่วนที่ 2: พยากรณ์ฝน 16 วันข้างหน้า — แยกออกจากฝนสะสมโดยสิ้นเชิง เป็นคนละส่วน ── */}
+      <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginTop: 28, marginBottom: 8, fontFamily: FONT }}>
+        🌤️ พยากรณ์ฝน 16 วันข้างหน้า
+      </div>
+
+      <div style={{ background: C.card, borderRadius: 12, padding: "16px 8px", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart data={rainForecast} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="label" fontSize={10} />
+            <YAxis yAxisId="mm" fontSize={11} unit="mm" />
+            <YAxis yAxisId="prob" orientation="right" domain={[0, 100]} fontSize={11} unit="%" />
+            <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }}
+              formatter={(v, n) => n === "โอกาสฝน %" ? [`${v}%`, n] : [`${v} มม.`, n]} />
+            <ReferenceLine yAxisId="mm" y={35} stroke="#d97706" strokeDasharray="3 2"
+              label={{ value: "ฝนหนัก 35มม.", fill: "#d97706", fontSize: 9 }} />
+            <Bar yAxisId="mm" dataKey="rain" name="ฝนคาดการณ์ (มม.)">
+              {rainForecast.map((r, i) => <Cell key={i} fill={getRainThreshold(r.rain)?.color ?? "#38bdf8"} />)}
+            </Bar>
+            <Line yAxisId="prob" type="monotone" dataKey="prob" name="โอกาสฝน %"
+              stroke="#7c3aed" strokeWidth={2} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+        {rainError && (
           <div style={{ fontSize: 11, color: "#92400e", marginTop: 6, textAlign: "center" }}>
             ⚠️ ใช้ข้อมูลสำรอง (เชื่อมต่อ Open-Meteo ไม่สำเร็จ: {rainError})
           </div>
         )}
-        {view === "forecast" && !rainLoading && rainForecast.length > 0 && (() => {
+        {!rainLoading && rainForecast.length > 0 && (() => {
           const total = rainForecast.reduce((s, d) => s + (d.rain ?? 0), 0);
           return total >= 30 ? (
             <div style={{
@@ -150,17 +173,6 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
           ) : null;
         })()}
       </div>
-
-      {(view === "daily" || view === "cum3") && (
-        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.muted, fontFamily: FONT }}>
-          <span style={{ fontWeight: 700 }}>ระดับฝน (สสน.):</span>
-          {RAIN_THRESHOLDS.map(t => (
-            <span key={t.level} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 10, height: 10, background: t.color, display: "inline-block", borderRadius: 2 }} />{t.label}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

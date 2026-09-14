@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import { STATUS_CONFIG, getStatus, fmt } from "../lib/status";
+import { STATUS_CONFIG, getStatus, fmt, formatThaiDatetime } from "../lib/status";
 
 /* ─────────────────────────────────────────────
    ผังน้ำแบบอินเทอร์แอกทีฟ (Cytoscape) — พอร์ตมาจาก `WaterFlowDiagramSupabase`
@@ -17,10 +17,12 @@ import { STATUS_CONFIG, getStatus, fmt } from "../lib/status";
       ข้อความ (เช่น "NP-01") — จึงต้องมี refToId/idToRef แปลงไปมาผ่าน
       sources[].curveNodeKey (มาจาก water_sources.curve_node_key) แทนที่จะ
       เทียบ ref ตรงๆ กับ sources[].id แบบต้นแบบที่ผูกกับนครป่าหมากตำบลเดียว
-   2. ไม่มี prop `telemetry` จริงจาก Google Sheets ในระบบนี้ (นครป่าหมากยังไม่มี
-      โทรมาตรใช้งาน — data_feeds = 0 แถว) จึงส่ง telemetry=null เสมอ — โค้ด
-      ส่วนแสดงผล panel โทรมาตรของเดิมรองรับกรณีนี้อยู่แล้ว (โชว์ข้อความ
-      "ยังไม่มีข้อมูล" ตามดีไซน์เดิม) เผื่ออนาคตมีตำบลที่มีโทรมาตรจริงมาต่อ prop นี้
+   2. prop `telemetry` เดิมของต้นแบบเป็นข้อมูลสถานีเดียว (VLGE12) ก้อนเดียว ส่วนระบบนี้
+      เป็น multi-tenant และแม่นาเรือมีหลายสถานีโทรมาตรพร้อมกัน (RES002/RES004/RES005/
+      RES006 จาก data_feeds จริง) — จึงเปลี่ยน prop นี้เป็น "map" คีย์ด้วยรหัสสถานี
+      (= node.label ของโหนดโทรมาตรที่ผู้ใช้ตั้งไว้บนผังน้ำ) แล้ว lookup ตอน tap แทนการ
+      ใช้ก้อนเดียวตรงๆ — โค้ดส่วนแสดงผล panel (ข้อความ "ยังไม่มีข้อมูล" ตอน null) ยังคง
+      เดิมตามที่ debug มาแล้ว
 ───────────────────────────────────────────── */
 
 const FLOW_ANIM_DEFAULT = true;
@@ -142,10 +144,11 @@ export default function WaterFlowDiagramCytoscape({ nodes, edges, sources, theme
             return;
           }
           if (ntype === "telemetry") {
+            const code = evt.target.data("origLabel") || evt.target.data("label") || "";
             setSelectedStructure({
               kind: "telemetry",
-              label: evt.target.data("origLabel") || evt.target.data("label") || "สถานีโทรมาตร",
-              data: telemetryRef.current,
+              label: code || "สถานีโทรมาตร",
+              data: (telemetryRef.current && code) ? (telemetryRef.current[code] ?? null) : null,
             });
           }
         });
@@ -355,7 +358,7 @@ export default function WaterFlowDiagramCytoscape({ nodes, edges, sources, theme
                 <div style={{ position: "absolute", top: 8, right: 8, maxWidth: 260, background: "#fff", borderRadius: 10, padding: "10px 14px 12px", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", border: "1.5px solid #cbd5e1", fontFamily: FONT }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t?.stationName || selectedStructure.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t?.stationCode || selectedStructure.label}</div>
                       <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>สถานีโทรมาตร</div>
                     </div>
                     <button onClick={() => setSelectedStructure(null)} style={closeBtn(C)}>✕</button>
@@ -363,7 +366,48 @@ export default function WaterFlowDiagramCytoscape({ nodes, edges, sources, theme
                   {!t ? (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>⏳ ยังไม่มีข้อมูลระดับน้ำจากสถานีนี้</div>
                   ) : (
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>{JSON.stringify(t)}</div>
+                    <>
+                      <div style={{ fontSize: 10, color: C.muted, marginTop: 8 }}>
+                        🕐 ข้อมูลล่าสุด {formatThaiDatetime(t.measureDatetime)}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8, borderTop: "0.5px solid #e2e8f0", marginTop: 8, paddingTop: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10, color: C.muted }}>ระดับน้ำปัจจุบัน</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>
+                            {t.currentLevel ?? "—"} <span style={{ fontSize: 10, fontWeight: 400, color: C.muted }}>ม.รทก.</span>
+                          </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10, color: C.muted }}>เทียบรอบก่อนหน้า</div>
+                          {t.prevDiff == null ? (
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ไม่มีข้อมูล</div>
+                          ) : (
+                            <div style={{ fontSize: 16, fontWeight: 700, color: "#0ea5e9" }}>
+                              {t.prevDiff >= 0 ? "▲" : "▼"} {Math.abs(t.prevDiff)} <span style={{ fontSize: 10, fontWeight: 400, color: C.muted }}>ม.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
+                        <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px" }}>
+                          <div style={{ fontSize: 9, color: C.muted }}>ห่างตลิ่งซ้าย</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.distLeftBank ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: "#94a3b8" }}>ตลิ่ง {t.leftBank ?? "—"} ม.</div>
+                        </div>
+                        <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px" }}>
+                          <div style={{ fontSize: 9, color: C.muted }}>ห่างตลิ่งขวา</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.distRightBank ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: "#94a3b8" }}>ตลิ่ง {t.rightBank ?? "—"} ม.</div>
+                        </div>
+                        <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px", gridColumn: "1 / -1" }}>
+                          <div style={{ fontSize: 9, color: C.muted }}>ลึกจากพื้นดิน</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.depthFromGround ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: "#94a3b8" }}>พื้นดิน {t.groundLevel ?? "—"} ม.</div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               );

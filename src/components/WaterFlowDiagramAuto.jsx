@@ -10,7 +10,7 @@ import WaterFlowDiagramCytoscape from "./WaterFlowDiagramCytoscape";
      -> fallback ไปใช้ผัง SVG hardcode เดิม (ซึ่งมี placeholder guard ของ
      ตัวเองอยู่แล้วถ้าไม่เจอ source_id ที่ตรงกันสักตัว)
 ───────────────────────────────────────────── */
-export default function WaterFlowDiagramAuto({ tambonId, sources, theme, selectedId, onSelect }) {
+export default function WaterFlowDiagramAuto({ tambonId, sources, theme, selectedId, onSelect, telemetryByCode }) {
   const { C, FONT } = theme;
   const { nodes, edges, loading } = useWaterNetworkDiagram(tambonId);
 
@@ -31,7 +31,7 @@ export default function WaterFlowDiagramAuto({ tambonId, sources, theme, selecte
     return (
       <WaterFlowDiagramCytoscape
         nodes={nodes} edges={edges} sources={sources} theme={theme}
-        selectedId={selectedId} onSelect={onSelect}
+        selectedId={selectedId} onSelect={onSelect} telemetry={telemetryByCode}
       />
     );
   }

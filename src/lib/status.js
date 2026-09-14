@@ -46,6 +46,19 @@ export function trendArrowInfo(dW) {
   return { icon: "—", label: "คงที่", color: "#94a3b8" };
 }
 
+// เวลาโทรมาตร (timestamptz UTC จาก Supabase) -> ข้อความเวลาไทย "3 ก.ย. 2569 17:40 น."
+// พอร์ตจาก toBangkokParts()+formatThaiDatetime() ของต้นแบบนครป่าหมาก (App.jsx) —
+// เขตเวลากรุงเทพฯ คงที่ UTC+7 ไม่มี DST จึงบวก 7 ชม. แล้วอ่านค่า UTC component ได้ตรงๆ
+export function formatThaiDatetime(iso) {
+  if (!iso) return "—";
+  const TH_MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const d = new Date(new Date(iso).getTime() + 7 * 3600 * 1000);
+  if (isNaN(d.getTime())) return String(iso);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCDate()} ${TH_MON[d.getUTCMonth()]} ${d.getUTCFullYear() + 543} ${hh}:${mm} น.`;
+}
+
 export function fmtDate(iso) {
   if (!iso) return "—";
   const TH_MON = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];

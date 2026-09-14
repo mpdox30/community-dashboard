@@ -8,7 +8,7 @@ import WaterFlowDiagramAuto from "./WaterFlowDiagramAuto";
    วัดพิกัดตรงจาก SVG source และตรวจสอบไขว้กับไฟล์ "ชี้เป้าแหล่งน้ำ"
    ที่ผู้ใช้วาดเส้นสีแดงกำกับไว้แล้ว — ครบทั้ง 8 แหล่งเก็บกัก
 ───────────────────────────────────────────── */
-export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId, onSelect }) {
+export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId, onSelect, telemetryByCode }) {
   const { C, FONT } = theme;
   const [filterMoo, setFilterMoo] = useState("all");
 
@@ -25,7 +25,7 @@ export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
-        <WaterFlowDiagramAuto tambonId={tambonId} sources={sources} theme={theme} selectedId={selectedId} onSelect={onSelect} />
+        <WaterFlowDiagramAuto tambonId={tambonId} sources={sources} theme={theme} selectedId={selectedId} onSelect={onSelect} telemetryByCode={telemetryByCode} />
         <div style={{ padding: "8px 2px", fontSize: 11, color: C.muted, fontFamily: FONT }}>
           กล่องสี % ทับตำแหน่งแหล่งเก็บกักบนผังน้ำ — กดเพื่อดูรายละเอียด (ฝาย/เช็คดำไม่แสดง % เนื่องจากไม่มีการติดตาม)
         </div>
