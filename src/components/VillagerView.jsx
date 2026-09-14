@@ -21,8 +21,8 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
 
   // สถานีโทรมาตรจริง (data_feeds/HII) ของทุกแหล่งน้ำในตำบลนี้ — ใช้แสดงผลเมื่อกด
   // สัญลักษณ์สถานีโทรมาตรบนผังน้ำ (ผู้ใช้เพิ่ม node เองแล้ว ตั้ง label เป็นรหัสสถานี)
-  const sourceIds = useMemo(() => sources.map(s => s.id), [sources]);
-  const { telemetryByCode } = useTelemetry(sourceIds);
+  // ส่ง sources เต็ม (ไม่ใช่แค่ id) เพราะต้องใช้ spillwayLevel/capacity คำนวณปริมาณน้ำปัจจุบันด้วย
+  const { telemetryByCode } = useTelemetry(sources);
 
   const connectionsBySourceId = useMemo(() => {
     if (!nodes || !edges || !sources) return {};
@@ -65,17 +65,25 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
         ))}
       </div>
 
-      {tab === "map"
-        ? <WaterMap sources={sources} tambon={tambon} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />
-        : <WaterNetworkPanel sources={sources} tambonId={tambon?.tambon_id} theme={theme} selectedId={selectedId} onSelect={setSelectedId} telemetryByCode={telemetryByCode} />}
-
-      {selectedSource && (
-        <SourceDetailCard
-          source={selectedSource}
-          theme={theme}
-          history={selectedHistory}
-          connectionLabel={connectionsBySourceId[selectedId]}
-          onClose={() => setSelectedId(null)}
+      {tab === "map" ? (
+        <>
+          <WaterMap sources={sources} tambon={tambon} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />
+          {selectedSource && (
+            <SourceDetailCard
+              source={selectedSource}
+              theme={theme}
+              history={selectedHistory}
+              connectionLabel={connectionsBySourceId[selectedId]}
+              onClose={() => setSelectedId(null)}
+            />
+          )}
+        </>
+      ) : (
+        <WaterNetworkPanel
+          sources={sources} tambonId={tambon?.tambon_id} theme={theme} selectedId={selectedId} onSelect={setSelectedId}
+          telemetryByCode={telemetryByCode}
+          selectedSource={selectedSource} selectedHistory={selectedHistory}
+          connectionLabel={connectionsBySourceId[selectedId]} onCloseDetail={() => setSelectedId(null)}
         />
       )}
 
