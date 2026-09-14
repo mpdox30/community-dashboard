@@ -392,20 +392,32 @@ export default function WaterFlowDiagramCytoscape({ nodes, edges, sources, theme
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
                         <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px" }}>
-                          <div style={{ fontSize: 9, color: C.muted }}>ห่างตลิ่งซ้าย</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.distLeftBank ?? "—"} ม.</div>
-                          <div style={{ fontSize: 9, color: "#94a3b8" }}>ตลิ่ง {t.leftBank ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: C.muted }}>ระดับสปิลเวย์</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.spillwayLevel ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: "#94a3b8" }}>ม.รทก.</div>
                         </div>
                         <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px" }}>
-                          <div style={{ fontSize: 9, color: C.muted }}>ห่างตลิ่งขวา</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.distRightBank ?? "—"} ม.</div>
-                          <div style={{ fontSize: 9, color: "#94a3b8" }}>ตลิ่ง {t.rightBank ?? "—"} ม.</div>
+                          <div style={{ fontSize: 9, color: C.muted }}>ระยะจากสปิลเวย์</div>
+                          {t.distFromSpillway == null ? (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>—</div>
+                          ) : (
+                            <div style={{ fontSize: 13, fontWeight: 700, color: t.distFromSpillway > 0 ? "#dc2626" : C.navy }}>
+                              {t.distFromSpillway > 0 ? "+" : ""}{t.distFromSpillway} ม.
+                            </div>
+                          )}
+                          <div style={{ fontSize: 9, color: "#94a3b8" }}>
+                            {t.distFromSpillway == null ? "" : t.distFromSpillway > 0 ? "สูงกว่าสปิลเวย์" : "ต่ำกว่าสปิลเวย์"}
+                          </div>
                         </div>
-                        <div style={{ background: "#f8fafc", borderRadius: 6, padding: "6px 8px", gridColumn: "1 / -1" }}>
-                          <div style={{ fontSize: 9, color: C.muted }}>ลึกจากพื้นดิน</div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{t.depthFromGround ?? "—"} ม.</div>
-                          <div style={{ fontSize: 9, color: "#94a3b8" }}>พื้นดิน {t.groundLevel ?? "—"} ม.</div>
-                        </div>
+                      </div>
+
+                      <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 6, padding: "6px 8px", marginTop: 6 }}>
+                        <div style={{ fontSize: 9, color: C.muted }}>ปริมาณน้ำปัจจุบัน</div>
+                        {t.currentVolume != null ? (
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{fmt(t.currentVolume)} ลบ.ม.</div>
+                        ) : (
+                          <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>ไม่มีข้อมูล (ยังไม่ได้ระบุระดับสปิลเวย์ของแหล่งน้ำนี้)</div>
+                        )}
                       </div>
                     </>
                   )}

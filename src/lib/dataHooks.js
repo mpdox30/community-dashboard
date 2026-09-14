@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "./supabase";
 
 // PostgREST จำกัดจำนวนแถวต่อ request ไว้ที่ 1000 แถว (db.max_rows) โดย default
@@ -110,6 +110,10 @@ export function useSources(tambonId) {
             m3,
             isolated: s.is_isolated,
             curveNodeKey: s.curve_node_key ?? null, // ใช้จับคู่กับ source_ref บนผังน้ำ (nw_diagram_current_nodes)
+            // ระดับสปิลเวย์ (ม.รทก.) — ใช้คำนวณปริมาณน้ำปัจจุบันจากระดับน้ำโทรมาตรจริง
+            // (ยังไม่มีคอลัมน์นี้ใน v_water_sources_public ปัจจุบัน — s.elevation_reference_msl
+            // จะเป็น undefined จนกว่าจะเพิ่มคอลัมน์เข้า view นี้ ทำไว้เผื่อล่วงหน้าแบบ forward-compatible)
+            spillwayLevel: s.elevation_reference_msl != null ? Number(s.elevation_reference_msl) : null,
             catchmentKm2: s.catchment_area_km2 != null ? Number(s.catchment_area_km2) : null,
             beneficiaryRai: s.beneficiary_agri_rai != null ? Number(s.beneficiary_agri_rai) : null,
             beneficiaryPopulation: s.beneficiary_population != null ? Number(s.beneficiary_population) : null,
@@ -328,10 +332,22 @@ export function useWaterNetworkDiagram(tambonId) {
    (RES002/RES004/RES005/RES006 ผูกกับ data_feeds ของแต่ละแหล่งน้ำอยู่แล้ว) —
    จึงดึงทุกสถานีที่ active ของตำบลนั้นพร้อมกัน คืนเป็น map keyed ด้วย
    external_station_code (รหัสสถานี) แทนที่จะ resolve ทีละสถานี
+
+   ปริมาณน้ำปัจจุบัน (currentVolume): แหล่งน้ำเหล่านี้เป็นอ่างเก็บน้ำ ไม่ใช่จุดวัดริมฝั่ง
+   แม่น้ำแบบ VLGE12 ต้นแบบ — left_bank_msl/right_bank_msl ของ HII จึงไม่มีความหมาย
+   (เป็น null เสมอในข้อมูลจริงของแม่นาเรือ) ใช้สูตรเชิงเส้นระหว่างระดับพื้นดิน (ground_level_msl
+   จากโทรมาตร) กับระดับสปิลเวย์ (spillwayLevel จาก water_sources.elevation_reference_msl,
+   ต้องเติมค่าเข้า Supabase ก่อนจึงจะคำนวณได้ — ถ้ายังไม่มีค่า currentVolume จะเป็น null)
+   คือ pct_live = (currentLevel-ground)/(spillway-ground), volume = pct_live × ความจุที่สปิลเวย์
 ───────────────────────────────────────────── */
-export function useTelemetry(sourceIds) {
+export function useTelemetry(sources) {
   const [telemetryByCode, setTelemetryByCode] = useState({});
   const [loading, setLoading] = useState(true);
+  const sourceIds = useMemo(() => (sources ?? []).map(s => s.id), [sources]);
+  const specBySourceId = useMemo(
+    () => Object.fromEntries((sources ?? []).map(s => [s.id, { spillwayLevel: s.spillwayLevel ?? null, capacity: s.maxM3 ?? null }])),
+    [sources]
+  );
 
   useEffect(() => {
     if (!sourceIds || sourceIds.length === 0) { setTelemetryByCode({}); setLoading(false); return; }
@@ -368,9 +384,19 @@ export function useTelemetry(sourceIds) {
           const rightBank = round2(last.right_bank_msl);
           const groundLevel = round2(last.ground_level_msl);
 
+          const spec = specBySourceId[feed.source_id] ?? {};
+          const spillwayLevel = spec.spillwayLevel ?? null;
+          let currentVolume = null;
+          if (currentLevel != null && groundLevel != null && spillwayLevel != null && spec.capacity != null && spillwayLevel !== groundLevel) {
+            const pctLive = (currentLevel - groundLevel) / (spillwayLevel - groundLevel);
+            currentVolume = Math.round(pctLive * spec.capacity);
+          }
+
           return [feed.external_station_code, {
             stationCode: feed.external_station_code,
-            currentLevel, leftBank, rightBank, groundLevel,
+            currentLevel, leftBank, rightBank, groundLevel, spillwayLevel, currentVolume,
+            // ระยะจากสปิลเวย์: ค่าลบ = ระดับน้ำต่ำกว่าสปิลเวย์ (ปกติ), ค่าบวก = สูงกว่าสปิลเวย์ (น้ำล้น)
+            distFromSpillway: (currentLevel != null && spillwayLevel != null) ? round2(currentLevel - spillwayLevel) : null,
             measureDatetime: last.measured_at,
             prevDiff: (currentLevel != null && prevLevel != null) ? round2(currentLevel - prevLevel) : null,
             distLeftBank: (leftBank != null && currentLevel != null) ? round2(leftBank - currentLevel) : null,
