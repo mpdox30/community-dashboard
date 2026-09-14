@@ -1,4 +1,5 @@
 import { fmt } from "../lib/status";
+import CropWaterPlanner from "./CropWaterPlanner";
 
 /* ETc เต็มฤดู (100 วัน) ≈ 483 มม. → น้ำต่อไร่ = 483×1600/1000 ≈ 773 ลบ.ม./ไร่ (Kc ข้าว=1.05 ×
    ET0=4.6 มม./วัน, ไม่รวมฝน) — ค่านี้ขึ้นกับภูมิอากาศ/พันธุ์พืชเฉพาะพื้นที่ (RID เองก็คำนวณแยกตามพื้นที่
@@ -6,7 +7,7 @@ import { fmt } from "../lib/status";
    default 773 = สูตรเดิมจากต้นฉบับทุกประการ (ตำบลที่ยังไม่ตั้งค่าเอง = พฤติกรรมเดิมไม่เปลี่ยน) */
 const ETc_FALLBACK = 773;
 
-export default function TabCrop({ sources, snap, tambon, theme }) {
+export default function TabCrop({ sources, snap, tambon, theme, rainMonthly }) {
   const { C, FONT } = theme;
   const ETc_FULL_M3_PER_RAI = tambon?.etc_m3_per_rai_per_season ?? ETc_FALLBACK;
   const storage = sources.filter(s => s.role === "storage");
@@ -152,6 +153,9 @@ export default function TabCrop({ sources, snap, tambon, theme }) {
           — ต้องสำรวจภาคสนามหรือรับข้อมูลจาก อบต. เพิ่มเติมก่อนจะคำนวณความเสี่ยงต่อพื้นที่ได้ครบทุกแหล่ง
         </div>
       )}
+
+      {/* ── CropWaterPlanner (เฟส 2, GAP_ANALYSIS §3.2) — เพิ่มต่อท้าย ไม่กระทบส่วนสรุปด้านบนเลย ── */}
+      {storage.length > 0 && <CropWaterPlanner sources={storage} rainMonthly={rainMonthly} theme={theme} />}
     </div>
   );
 }

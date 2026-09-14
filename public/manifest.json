@@ -1,0 +1,15 @@
+{
+  "name": "ระบบติดตามสถานการณ์น้ำ",
+  "short_name": "ติดตามน้ำ",
+  "description": "ระบบติดตามสถานการณ์น้ำ (ระดับน้ำ/ปริมาณฝน/ความเสี่ยงขาดแคลนน้ำ)",
+  "start_url": "/community-dashboard/",
+  "scope": "/community-dashboard/",
+  "display": "standalone",
+  "background_color": "#f9f6ef",
+  "theme_color": "#0c4a6e",
+  "lang": "th",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

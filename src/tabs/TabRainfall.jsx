@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
 import { RAIN_THRESHOLDS, getRainThreshold } from "../lib/status";
 
 const PERIOD_DAYS = { "30d": 30, "90d": 90, "1y": 365, all: Infinity };
@@ -115,13 +115,21 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
               <Bar dataKey="mm" name="ฝนรวมรายปี (มม.)" fill="#0c4a6e" />
             </BarChart>
           ) : (
-            <BarChart data={rainForecast}>
+            <ComposedChart data={rainForecast} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="label" fontSize={10} />
-              <YAxis fontSize={11} unit="mm" />
-              <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} formatter={(v, n, p) => [`${v} มม. (โอกาส ${p.payload.prob}%)`, "ฝนคาดการณ์"]} />
-              <Bar dataKey="rain" name="ฝนคาดการณ์ (มม.)" fill="#38bdf8" />
-            </BarChart>
+              <YAxis yAxisId="mm" fontSize={11} unit="mm" />
+              <YAxis yAxisId="prob" orientation="right" domain={[0, 100]} fontSize={11} unit="%" />
+              <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }}
+                formatter={(v, n) => n === "โอกาสฝน %" ? [`${v}%`, n] : [`${v} มม.`, n]} />
+              <ReferenceLine yAxisId="mm" y={35} stroke="#d97706" strokeDasharray="3 2"
+                label={{ value: "ฝนหนัก 35มม.", fill: "#d97706", fontSize: 9 }} />
+              <Bar yAxisId="mm" dataKey="rain" name="ฝนคาดการณ์ (มม.)">
+                {rainForecast.map((r, i) => <Cell key={i} fill={getRainThreshold(r.rain)?.color ?? "#38bdf8"} />)}
+              </Bar>
+              <Line yAxisId="prob" type="monotone" dataKey="prob" name="โอกาสฝน %"
+                stroke="#7c3aed" strokeWidth={2} dot={false} />
+            </ComposedChart>
           )}
         </ResponsiveContainer>
         {view === "forecast" && rainError && (
@@ -129,6 +137,18 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
             ⚠️ ใช้ข้อมูลสำรอง (เชื่อมต่อ Open-Meteo ไม่สำเร็จ: {rainError})
           </div>
         )}
+        {view === "forecast" && !rainLoading && rainForecast.length > 0 && (() => {
+          const total = rainForecast.reduce((s, d) => s + (d.rain ?? 0), 0);
+          return total >= 30 ? (
+            <div style={{
+              marginTop: 10, background: "#f0fdf4", border: "1.5px solid #86efac",
+              borderRadius: 8, padding: "10px 14px", fontSize: 13, fontFamily: FONT,
+            }}>
+              🌱 <strong>คาดว่าจะมีฝน {total.toFixed(0)} มม. ใน 16 วัน</strong> —
+              หากฝนตกลงแหล่งน้ำในพื้นที่ ประมาณการวันวิกฤตในแท็บ "ความเสี่ยง" อาจเลื่อนออกไปได้
+            </div>
+          ) : null;
+        })()}
       </div>
 
       {(view === "daily" || view === "cum3") && (

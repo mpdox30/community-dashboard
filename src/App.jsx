@@ -1,13 +1,40 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { TAMBON_SLUG } from "./lib/supabase";
 import { useTambon, useSources, useLevelTimeSeries, useRainfall, useRainForecast } from "./lib/dataHooks";
 import { buildTheme } from "./lib/theme";
 import Header from "./components/Header";
 import VillagerView from "./components/VillagerView";
 import ManagerView from "./components/ManagerView";
+import LoadingScreen from "./components/LoadingScreen";
 
 export default function App() {
   const [mode, setMode] = useState("villager");
+
+  // ── PWA install prompt (พอร์ตจากต้นแบบนครป่าหมาก App.jsx บรรทัด ~4311-4335) ──
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    // รับ event จาก browser เมื่อ app พร้อม install (ต้องมี manifest.json + service worker — ดู public/)
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      // แสดง banner หลัง 3 วินาที (ไม่ขึ้นทันทีรบกวนผู้ใช้)
+      setTimeout(() => setShowInstallBanner(true), 3000);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === "accepted") {
+      setInstallPrompt(null);
+      setShowInstallBanner(false);
+    }
+  };
 
   const { tambon, loading: tambonLoading, error: tambonError } = useTambon(TAMBON_SLUG);
   const { sources, snap, loading: sourcesLoading, error: sourcesError, reload: reloadSources } = useSources(tambon?.tambon_id);
@@ -20,15 +47,7 @@ export default function App() {
   const theme = buildTheme(tambon);
 
   if (tambonLoading || sourcesLoading || !sources) {
-    return (
-      <div style={{ ...theme.base, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center", color: theme.C.navy, fontFamily: theme.FONT }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💧</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>กำลังโหลดข้อมูล…</div>
-          <div style={{ fontSize: 12, color: theme.C.muted, marginTop: 6 }}>ดึงข้อมูลล่าสุดจาก Supabase</div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen theme={theme} />;
   }
 
   if (tambonError || sourcesError || !tambon) {
@@ -45,6 +64,37 @@ export default function App() {
 
   return (
     <div style={theme.base}>
+      {/* ── PWA Install Banner (พอร์ตจากต้นแบบนครป่าหมาก) ── */}
+      {showInstallBanner && installPrompt && (
+        <div style={{
+          background: theme.BRAND_GRAD,
+          padding: "10px 16px", display: "flex", alignItems: "center",
+          gap: 10, flexWrap: "wrap", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>📲</span>
+            <div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: theme.FONT }}>
+                เพิ่ม App ลงหน้าจอมือถือ
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, fontFamily: theme.FONT }}>
+                เปิดได้ทันทีโดยไม่ต้องพิมพ์ URL
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleInstall} style={{
+              background: "#fff", color: theme.C.navy, border: "none", borderRadius: 8,
+              padding: "6px 16px", fontFamily: theme.FONT, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}>ติดตั้ง</button>
+            <button onClick={() => setShowInstallBanner(false)} style={{
+              background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8,
+              padding: "6px 12px", fontFamily: theme.FONT, fontSize: 13, cursor: "pointer",
+            }}>✕</button>
+          </div>
+        </div>
+      )}
+
       <Header tambon={tambon} theme={theme} mode={mode} setMode={setMode} snap={snap} />
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "0 16px 40px" }}>

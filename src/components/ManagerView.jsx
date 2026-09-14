@@ -42,7 +42,7 @@ export default function ManagerView({ sources, snap, tambon, ts, rainDaily, rain
       {tab === "rain"     && <TabRainfall rainDaily={rainDaily} rainMonthly={rainMonthly} rainYearly={rainYearly}
                                            rainForecast={rainForecast} rainLoading={rainLoading} rainError={rainError} theme={theme} />}
       {tab === "risk"     && <TabRisk storageSources={storageSources} theme={theme} />}
-      {tab === "crop"     && <TabCrop sources={sources} snap={snap} tambon={tambon} theme={theme} />}
+      {tab === "crop"     && <TabCrop sources={sources} snap={snap} tambon={tambon} theme={theme} rainMonthly={rainMonthly} />}
       {tab === "entry"    && <TabEntry storageSources={storageSources} tambonId={tambon?.tambon_id} theme={theme} onSubmitted={reloadSources} />}
       {tab === "balance"  && <TabWaterBalance tambon={tambon} theme={theme} />}
     </div>
