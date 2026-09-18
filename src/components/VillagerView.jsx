@@ -8,6 +8,7 @@ import VillagerFormButton from "./VillagerFormButton";
 import PrintReport from "./PrintReport";
 import SourceDetailCard from "./SourceDetailCard";
 import { useWaterNetworkDiagram, useTelemetry } from "../lib/dataHooks";
+import { IconMap, IconNetwork, IconPrinter } from "../lib/icons";
 
 export default function VillagerView({ sources, snap, tambon, theme, ts }) {
   const [tab, setTab] = useState("map");
@@ -48,6 +49,11 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
     return ts.map(row => ({ iso: row.iso, pct: row[selectedId] ?? null }));
   }, [selectedId, ts]);
 
+  const SUB_TABS = [
+    { id: "map", label: "แผนที่", Icon: IconMap },
+    { id: "water", label: "ผังน้ำ", Icon: IconNetwork },
+  ];
+
   return (
     <div>
       <AlertBanner sources={sources} theme={theme} />
@@ -55,14 +61,22 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
       <StatusSummary sources={sources} theme={theme} />
 
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-        {[{ id: "map", label: "🗺️ แผนที่" }, { id: "water", label: "💧 ผังน้ำ" }].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            border: `1.5px solid ${tab === t.id ? C.sky : "#cbd5e1"}`,
-            background: tab === t.id ? "#e0f2fe" : "#fff",
-            borderRadius: "8px 8px 0 0", padding: "8px 16px", cursor: "pointer",
-            fontFamily: FONT, fontSize: 13, fontWeight: tab === t.id ? 700 : 400,
-          }}>{t.label}</button>
-        ))}
+        {SUB_TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              border: `1.5px solid ${active ? C.sky : "#cbd5e1"}`,
+              background: active ? "#e0f2fe" : "#fff",
+              borderRadius: "8px 8px 0 0", padding: "8px 16px", cursor: "pointer",
+              fontFamily: FONT, fontSize: 13, fontWeight: active ? 700 : 400,
+              display: "flex", alignItems: "center", gap: 6,
+              color: active ? C.navy : C.muted,
+            }}>
+              <t.Icon size={16} color={active ? C.navy : C.muted} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "map" ? (
@@ -91,7 +105,11 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
         <button onClick={() => window.print()} style={{
           background: "#fff", color: C.navy, border: `1.5px solid ${C.navy}`, borderRadius: 10,
           padding: "10px 20px", fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: "pointer",
-        }}>🖨️ พิมพ์รายงาน / บันทึก PDF</button>
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <IconPrinter size={17} color={C.navy} />
+          พิมพ์รายงาน / บันทึก PDF
+        </button>
         <VillagerFormButton tambonId={tambon?.tambon_id} theme={theme} />
       </div>
 

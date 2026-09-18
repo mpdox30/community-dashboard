@@ -6,6 +6,7 @@ import Header from "./components/Header";
 import VillagerView from "./components/VillagerView";
 import ManagerView from "./components/ManagerView";
 import LoadingScreen from "./components/LoadingScreen";
+import { IconSmartphone, IconAlertTriangle } from "./lib/icons";
 
 export default function App() {
   const [mode, setMode] = useState("villager");
@@ -54,7 +55,7 @@ export default function App() {
     return (
       <div style={{ ...theme.base, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
         <div style={{ textAlign: "center", color: "#b91c1c", fontFamily: theme.FONT, padding: 20 }}>
-          <div style={{ fontSize: 40 }}>⚠️</div>
+          <div style={{ display: "flex", justifyContent: "center" }}><IconAlertTriangle size={40} color="#b91c1c" /></div>
           <div style={{ fontWeight: 700, marginTop: 8 }}>ไม่สามารถโหลดข้อมูลตำบลได้</div>
           <div style={{ fontSize: 12, marginTop: 6 }}>{tambonError || sourcesError || "ไม่พบตำบลนี้ในระบบ"}</div>
         </div>
@@ -72,7 +73,7 @@ export default function App() {
           gap: 10, flexWrap: "wrap", justifyContent: "space-between",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 24 }}>📲</span>
+            <IconSmartphone size={24} color="#fff" />
             <div>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: theme.FONT }}>
                 เพิ่ม App ลงหน้าจอมือถือ

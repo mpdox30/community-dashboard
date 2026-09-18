@@ -6,15 +6,16 @@ import TabRisk from "../tabs/TabRisk";
 import TabCrop from "../tabs/TabCrop";
 import TabEntry from "../tabs/TabEntry";
 import TabWaterBalance from "../tabs/TabWaterBalance";
+import { IconOverview, IconTrend, IconRain, IconAlertTriangle, IconCrop, IconClipboardCheck, IconScale } from "../lib/icons";
 
 const MGR_TABS = [
-  { id: "overview", label: "🗺️ ภาพรวม" },
-  { id: "trend",    label: "📈 แนวโน้ม" },
-  { id: "rain",     label: "🌧️ ข้อมูลฝน" },
-  { id: "risk",     label: "⚠️ ความเสี่ยง" },
-  { id: "crop",     label: "🌾 การเกษตร" },
-  { id: "entry",    label: "📝 กรอกข้อมูล" },
-  { id: "balance",  label: "⚖️ สมดุลน้ำตำบล" },
+  { id: "overview", label: "ภาพรวม", Icon: IconOverview },
+  { id: "trend",    label: "แนวโน้ม", Icon: IconTrend },
+  { id: "rain",     label: "ข้อมูลฝน", Icon: IconRain },
+  { id: "risk",     label: "ความเสี่ยง", Icon: IconAlertTriangle },
+  { id: "crop",     label: "การเกษตร", Icon: IconCrop },
+  { id: "entry",    label: "กรอกข้อมูล", Icon: IconClipboardCheck },
+  { id: "balance",  label: "สมดุลน้ำตำบล", Icon: IconScale },
 ];
 
 export default function ManagerView({ sources, snap, tambon, ts, rainDaily, rainMonthly, rainYearly, rainForecast, rainLoading, rainError, theme, reloadSources }) {
@@ -25,16 +26,23 @@ export default function ManagerView({ sources, snap, tambon, ts, rainDaily, rain
   return (
     <div>
       <div style={{ display: "flex", gap: 4, marginTop: 16, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
-        {MGR_TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            border: `1.5px solid ${tab === t.id ? C.sky : "#cbd5e1"}`,
-            background: tab === t.id ? "#e0f2fe" : "#fff",
-            borderRadius: "8px 8px 0 0", padding: "8px 16px", cursor: "pointer",
-            fontFamily: FONT, fontSize: 13, fontWeight: tab === t.id ? 700 : 400,
-            color: tab === t.id ? C.navy : C.muted, whiteSpace: "nowrap",
-            borderBottom: tab === t.id ? "2px solid #0ea5e9" : "1.5px solid #cbd5e1",
-          }}>{t.label}</button>
-        ))}
+        {MGR_TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              border: `1.5px solid ${active ? C.sky : "#cbd5e1"}`,
+              background: active ? "#e0f2fe" : "#fff",
+              borderRadius: "8px 8px 0 0", padding: "8px 16px", cursor: "pointer",
+              fontFamily: FONT, fontSize: 13, fontWeight: active ? 700 : 400,
+              color: active ? C.navy : C.muted, whiteSpace: "nowrap",
+              borderBottom: active ? "2px solid #0ea5e9" : "1.5px solid #cbd5e1",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <t.Icon size={16} color={active ? C.navy : C.muted} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "overview" && <TabOverview sources={sources} theme={theme} />}

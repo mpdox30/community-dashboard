@@ -1,4 +1,5 @@
 import { fmtDate } from "../lib/status";
+import { IconUser, IconTool } from "../lib/icons";
 
 export default function Header({ tambon, theme, mode, setMode, snap }) {
   const { C, FONT, BRAND_GRAD } = theme;
@@ -21,17 +22,24 @@ export default function Header({ tambon, theme, mode, setMode, snap }) {
 
         <div style={{ display: "flex", gap: 6 }}>
           {[
-            { id: "villager", label: "👤 ประชาชน" },
-            { id: "manager", label: "🛠️ ผู้ดูแล" },
-          ].map(m => (
-            <button key={m.id} onClick={() => setMode(m.id)} style={{
-              border: "1.5px solid rgba(255,255,255,0.5)",
-              background: mode === m.id ? "#fff" : "transparent",
-              color: mode === m.id ? C.navy : "#fff",
-              borderRadius: 999, padding: "6px 16px", fontFamily: FONT,
-              fontSize: 13, fontWeight: 700, cursor: "pointer",
-            }}>{m.label}</button>
-          ))}
+            { id: "villager", label: "ประชาชน", Icon: IconUser },
+            { id: "manager", label: "ผู้ดูแล", Icon: IconTool },
+          ].map(m => {
+            const active = mode === m.id;
+            return (
+              <button key={m.id} onClick={() => setMode(m.id)} style={{
+                border: "1.5px solid rgba(255,255,255,0.5)",
+                background: active ? "#fff" : "transparent",
+                color: active ? C.navy : "#fff",
+                borderRadius: 999, padding: "6px 16px", fontFamily: FONT,
+                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                <m.Icon size={15} color={active ? C.navy : "#fff"} />
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       </div>
       {snap?.date && (

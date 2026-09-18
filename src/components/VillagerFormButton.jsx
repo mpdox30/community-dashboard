@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { checkGatePassword } from "../lib/dataHooks";
+import { IconMessagePlus, IconLock } from "../lib/icons";
 
 const FORM_URL = import.meta.env.VITE_VILLAGER_FORM_URL || "";
 
@@ -32,7 +33,11 @@ export default function VillagerFormButton({ tambonId, theme }) {
       <button onClick={() => setShow(true)} style={{
         background: BRAND_GRAD, color: "#fff", border: "none", borderRadius: 10,
         padding: "10px 20px", fontFamily: FONT, fontSize: 14, fontWeight: 700, cursor: "pointer",
-      }}>📝 แจ้งข้อมูลระดับน้ำ</button>
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <IconMessagePlus size={17} color="#fff" />
+        แจ้งข้อมูลระดับน้ำ
+      </button>
 
       {show && (
         <div style={{
@@ -43,7 +48,9 @@ export default function VillagerFormButton({ tambonId, theme }) {
             background: "#fff", borderRadius: 16, padding: "28px 24px", maxWidth: 300, width: "90%",
             textAlign: "center", fontFamily: FONT,
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+              <IconLock size={32} color={C.navy} />
+            </div>
             <div style={{ fontWeight: 700, color: C.navy, marginBottom: 12 }}>กรอกรหัสผ่าน</div>
             <input type="password" value={pwInput} autoFocus
               onChange={e => { setPwInput(e.target.value); setPwError(false); }}

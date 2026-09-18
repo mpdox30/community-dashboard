@@ -1,25 +1,49 @@
 import { fmt, getStatus, STATUS_CONFIG } from "../lib/status";
+import { IconDroplet } from "../lib/icons";
 
 export default function TotalBar({ snap, theme }) {
   const { C, FONT } = theme;
   if (!snap || snap.maxM3 === 0) return null;
   const cfg = STATUS_CONFIG[getStatus(snap.totalPct)];
   return (
-    <div style={{ background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "16px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, fontFamily: FONT }}>
-          💧 ปริมาณน้ำรวม ({snap.storageCount} แหล่งเก็บกัก)
+    <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
+      {/* บลอบสีเบลอ (จากสีแบรนด์ของตำบล) ให้แผ่นกระจกด้านหน้ามีอะไรให้ "มองทะลุ" เห็นความโปร่งจริง */}
+      <div style={{
+        position: "absolute", width: 160, height: 160, borderRadius: "50%",
+        left: -40, top: -60, background: `radial-gradient(circle, ${C.navy}, transparent 70%)`,
+        opacity: 0.5, filter: "blur(6px)",
+      }} />
+      <div style={{
+        position: "absolute", width: 160, height: 160, borderRadius: "50%",
+        right: -50, bottom: -70, background: `radial-gradient(circle, ${C.teal}, transparent 70%)`,
+        opacity: 0.45, filter: "blur(6px)",
+      }} />
+
+      <div style={{
+        position: "relative", zIndex: 1,
+        background: "rgba(255,255,255,0.55)",
+        backdropFilter: "blur(16px) saturate(180%)",
+        WebkitBackdropFilter: "blur(16px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.65)",
+        borderRadius: 16, padding: "16px 18px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.6)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 14, color: C.navy, fontFamily: FONT }}>
+            <IconDroplet size={16} color={C.navy} />
+            ปริมาณน้ำรวม ({snap.storageCount} แหล่งเก็บกัก)
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: cfg.text, fontFamily: FONT }}>
+            {snap.totalPct != null ? `${snap.totalPct}%` : "—"}
+          </div>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: cfg.text, fontFamily: FONT }}>
-          {snap.totalPct != null ? `${snap.totalPct}%` : "—"}
+        <div style={{ background: "rgba(226,232,240,0.8)", borderRadius: 999, height: 14, overflow: "hidden" }}>
+          <div style={{ width: `${Math.min(100, snap.totalPct ?? 0)}%`, height: "100%", background: cfg.badge, borderRadius: 999 }} />
         </div>
-      </div>
-      <div style={{ background: "#e2e8f0", borderRadius: 999, height: 14, overflow: "hidden" }}>
-        <div style={{ width: `${Math.min(100, snap.totalPct ?? 0)}%`, height: "100%", background: cfg.badge, borderRadius: 999 }} />
-      </div>
-      <div style={{ fontSize: 12, color: C.muted, marginTop: 6, fontFamily: FONT }}>
-        {fmt(snap.totalM3)} / {fmt(snap.maxM3)} ลบ.ม.
-        {snap.structureCount > 0 && ` · มีฝาย/เช็คดำอีก ${snap.structureCount} จุด (ไม่นับรวม %)`}
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 6, fontFamily: FONT }}>
+          {fmt(snap.totalM3)} / {fmt(snap.maxM3)} ลบ.ม.
+          {snap.structureCount > 0 && ` · มีฝาย/เช็คดำอีก ${snap.structureCount} จุด (ไม่นับรวม %)`}
+        </div>
       </div>
     </div>
   );
