@@ -7,6 +7,7 @@ import TabCrop from "../tabs/TabCrop";
 import TabEntry from "../tabs/TabEntry";
 import TabWaterBalance from "../tabs/TabWaterBalance";
 import { IconOverview, IconTrend, IconRain, IconAlertTriangle, IconCrop, IconClipboardCheck, IconScale } from "../lib/icons";
+import DataHealthPanel from "./DataHealthPanel";
 
 const MGR_TABS = [
   { id: "overview", label: "ภาพรวม", Icon: IconOverview },
@@ -25,6 +26,7 @@ export default function ManagerView({ sources, snap, tambon, ts, rainDaily, rain
 
   return (
     <div>
+      <DataHealthPanel sources={sources} rainDaily={rainDaily} theme={theme} />
       <div style={{ display: "flex", gap: 4, marginTop: 16, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
         {MGR_TABS.map(t => {
           const active = tab === t.id;

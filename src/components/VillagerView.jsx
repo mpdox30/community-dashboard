@@ -9,10 +9,13 @@ import PrintReport from "./PrintReport";
 import SourceDetailCard from "./SourceDetailCard";
 import { useWaterNetworkDiagram, useTelemetry } from "../lib/dataHooks";
 import { IconMap, IconNetwork, IconPrinter } from "../lib/icons";
+import RiskForecastBanner from "./RiskForecastBanner";
+import TimelineScrubber from "./TimelineScrubber";
 
 export default function VillagerView({ sources, snap, tambon, theme, ts }) {
   const [tab, setTab] = useState("map");
   const [selectedId, setSelectedId] = useState(null);
+  const [histDate, setHistDate] = useState(null); // null = ล่าสุด (live); ตั้งค่าจาก TimelineScrubber
   const { C, FONT } = theme;
 
   // ผังน้ำ (nw schema, อ่านอย่างเดียว) — ใช้หาป้าย "เชื่อมต่อกับ..." จาก label
@@ -43,7 +46,38 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
     return map;
   }, [nodes, edges, sources]);
 
-  const selectedSource = sources.find(s => s.id === selectedId);
+  // ── มุมมองย้อนหลัง (TimelineScrubber) — ฉาย pct/m3 ของแต่ละแหล่ง storage ณ วันที่เลือก
+  // จาก ts (ระดับน้ำรายวันที่โหลดมาแล้ว) แทนค่า "ล่าสุด" ปกติ ไม่ได้ query เพิ่ม/แก้ useSources()
+  // สูตร totalPct ใช้ round((total/max)*1000)/10 แบบเดียวกับ snap เดิมใน lib/dataHooks.js เป๊ะๆ
+  const displaySources = useMemo(() => {
+    if (!histDate || !ts) return sources;
+    const row = ts.find(r => r.iso === histDate);
+    if (!row) return sources;
+    return sources.map(s => {
+      if (s.role !== "storage") return s;
+      const pctRaw = row[s.id];
+      const pct = pctRaw != null ? Math.round(pctRaw * 10) / 10 : null;
+      const m3 = pct != null && s.maxM3 != null ? Math.round((pct / 100) * s.maxM3) : null;
+      return { ...s, pct, m3 };
+    });
+  }, [sources, ts, histDate]);
+
+  const displaySnap = useMemo(() => {
+    if (!histDate) return snap;
+    const storageWithData = displaySources.filter(s => s.role === "storage" && s.pct != null);
+    const totalM3 = storageWithData.reduce((sum, s) => sum + (s.m3 ?? 0), 0);
+    const maxM3 = displaySources.filter(s => s.role === "storage").reduce((sum, s) => sum + (s.maxM3 ?? 0), 0);
+    return {
+      date: histDate,
+      totalM3,
+      maxM3,
+      totalPct: maxM3 > 0 ? Math.round((totalM3 / maxM3) * 1000) / 10 : null,
+      storageCount: snap?.storageCount,
+      structureCount: snap?.structureCount,
+    };
+  }, [histDate, displaySources, snap]);
+
+  const selectedSource = displaySources.find(s => s.id === selectedId);
   const selectedHistory = useMemo(() => {
     if (!selectedId || !ts) return [];
     return ts.map(row => ({ iso: row.iso, pct: row[selectedId] ?? null }));
@@ -56,9 +90,11 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
 
   return (
     <div>
-      <AlertBanner sources={sources} theme={theme} />
-      <TotalBar snap={snap} theme={theme} />
-      <StatusSummary sources={sources} theme={theme} />
+      <AlertBanner sources={displaySources} theme={theme} />
+      {!histDate && <RiskForecastBanner sources={sources} theme={theme} />}
+      <TotalBar snap={displaySnap} theme={theme} />
+      <StatusSummary sources={displaySources} theme={theme} />
+      <TimelineScrubber ts={ts} onChange={setHistDate} theme={theme} />
 
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {SUB_TABS.map(t => {
@@ -81,7 +117,7 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
 
       {tab === "map" ? (
         <>
-          <WaterMap sources={sources} tambon={tambon} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />
+          <WaterMap sources={displaySources} tambon={tambon} theme={theme} selectedId={selectedId} onSelect={setSelectedId} />
           {selectedSource && (
             <SourceDetailCard
               source={selectedSource}
@@ -89,15 +125,17 @@ export default function VillagerView({ sources, snap, tambon, theme, ts }) {
               history={selectedHistory}
               connectionLabel={connectionsBySourceId[selectedId]}
               onClose={() => setSelectedId(null)}
+              histDate={histDate}
             />
           )}
         </>
       ) : (
         <WaterNetworkPanel
-          sources={sources} tambonId={tambon?.tambon_id} theme={theme} selectedId={selectedId} onSelect={setSelectedId}
+          sources={displaySources} tambonId={tambon?.tambon_id} theme={theme} selectedId={selectedId} onSelect={setSelectedId}
           telemetryByCode={telemetryByCode}
           selectedSource={selectedSource} selectedHistory={selectedHistory}
           connectionLabel={connectionsBySourceId[selectedId]} onCloseDetail={() => setSelectedId(null)}
+          histDate={histDate}
         />
       )}
 

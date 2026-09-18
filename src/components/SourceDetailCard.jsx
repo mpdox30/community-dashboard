@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceDot, ResponsiveContainer } from "recharts";
 import { STATUS_CONFIG, getStatus, fmt, fmtDate, trendArrowInfo } from "../lib/status";
 
 /* ─────────────────────────────────────────────
@@ -9,7 +9,7 @@ import { STATUS_CONFIG, getStatus, fmt, fmtDate, trendArrowInfo } from "../lib/s
    หมายเหตุ: ช่องรูปภาพเว้นไว้ก่อนตามที่ผู้ใช้ระบุ ("ยกเว้นรูป ให้เว้นไว้ก่อน
    เดี๋ยวจะส่งลิ๊งค์ภาพให้ทีหลัง") — ใช้ placeholder เดียวกับดีไซน์ของต้นแบบ
 ───────────────────────────────────────────── */
-export default function SourceDetailCard({ source, theme, history, connectionLabel, onClose }) {
+export default function SourceDetailCard({ source, theme, history, connectionLabel, onClose, histDate }) {
   const { C, FONT } = theme;
   if (!source) return null;
 
@@ -17,6 +17,8 @@ export default function SourceDetailCard({ source, theme, history, connectionLab
   const cfg = isStorage ? STATUS_CONFIG[getStatus(source.pct)] : null;
   const trend = isStorage ? trendArrowInfo(source.dW) : null;
   const hasHistory = isStorage && history && history.some(h => h.pct != null) && history.length > 1;
+  // จุดบนกราฟที่ตรงกับวันที่เลือกใน TimelineScrubber (ถ้ากำลังดูข้อมูลย้อนหลังอยู่)
+  const histPoint = histDate && history ? history.find(h => h.iso === histDate) : null;
 
   return (
     <div style={{
@@ -79,7 +81,14 @@ export default function SourceDetailCard({ source, theme, history, connectionLab
 
             {hasHistory ? (
               <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>📈 ระดับน้ำย้อนหลัง (%)</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span>📈 ระดับน้ำย้อนหลัง (%)</span>
+                  {histDate && (
+                    <span style={{ color: "#c2410c", fontWeight: 700 }}>
+                      · 📍 กำลังดู {fmtDate(histDate)}{histPoint?.pct != null ? ` (${histPoint.pct}%)` : ""}
+                    </span>
+                  )}
+                </div>
                 <ResponsiveContainer width="100%" height={160}>
                   <LineChart data={history} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -88,7 +97,14 @@ export default function SourceDetailCard({ source, theme, history, connectionLab
                     <Tooltip labelFormatter={fmtDate} formatter={v => [`${v}%`, "ระดับน้ำ"]} contentStyle={{ fontFamily: FONT, fontSize: 11 }} />
                     <ReferenceLine y={100} stroke="#22c55e" strokeDasharray="4 4" label={{ value: "เต็มความจุ", position: "insideTopRight", fontSize: 9, fill: "#16a34a" }} />
                     <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "วิกฤต", position: "insideBottomRight", fontSize: 9, fill: "#b91c1c" }} />
+                    {histDate && (
+                      <ReferenceLine x={histDate} stroke="#c2410c" strokeDasharray="3 3"
+                        label={{ value: "วันที่เลือก", position: "top", fontSize: 9, fill: "#c2410c" }} />
+                    )}
                     <Line type="monotone" dataKey="pct" stroke={C.navy} strokeWidth={2} dot={false} connectNulls />
+                    {histDate && histPoint?.pct != null && (
+                      <ReferenceDot x={histDate} y={histPoint.pct} r={5} fill="#c2410c" stroke="#fff" strokeWidth={1.5} />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>

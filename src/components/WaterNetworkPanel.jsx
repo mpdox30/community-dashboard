@@ -9,7 +9,7 @@ import SourceDetailCard from "./SourceDetailCard";
    วัดพิกัดตรงจาก SVG source และตรวจสอบไขว้กับไฟล์ "ชี้เป้าแหล่งน้ำ"
    ที่ผู้ใช้วาดเส้นสีแดงกำกับไว้แล้ว — ครบทั้ง 8 แหล่งเก็บกัก
 ───────────────────────────────────────────── */
-export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId, onSelect, telemetryByCode, selectedSource, selectedHistory, connectionLabel, onCloseDetail }) {
+export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId, onSelect, telemetryByCode, selectedSource, selectedHistory, connectionLabel, onCloseDetail, histDate }) {
   const { C, FONT } = theme;
   const [filterMoo, setFilterMoo] = useState("all");
 
@@ -41,6 +41,7 @@ export default function WaterNetworkPanel({ sources, tambonId, theme, selectedId
             history={selectedHistory}
             connectionLabel={connectionLabel}
             onClose={onCloseDetail}
+            histDate={histDate}
           />
         </div>
       )}

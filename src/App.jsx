@@ -7,6 +7,7 @@ import VillagerView from "./components/VillagerView";
 import ManagerView from "./components/ManagerView";
 import LoadingScreen from "./components/LoadingScreen";
 import { IconSmartphone, IconAlertTriangle } from "./lib/icons";
+import TopProgressBar from "./components/TopProgressBar";
 
 export default function App() {
   const [mode, setMode] = useState("villager");
@@ -47,7 +48,12 @@ export default function App() {
 
   const theme = buildTheme(tambon);
 
-  if (tambonLoading || sourcesLoading || !sources) {
+  // โหลดครั้งแรก (ยังไม่เคยมีข้อมูลเลย) -> เต็มจอ LoadingScreen (อนิเมชันรดน้ำต้นไม้) เหมือนเดิม
+  // โหลดซ้ำภายหลัง (เช่นหลังบันทึกข้อมูลจากแท็บกรอกข้อมูล -> reloadSources) -> ข้อมูลเก่ายังอยู่
+  // บนจอ ไม่กระพริบทั้งหน้าจอ แค่ขึ้นแถบโหลดบางๆ ด้านบนแทน (TopProgressBar) ให้รู้สึก responsive กว่า
+  const isBackgroundRefresh = !tambonLoading && !!sources && sourcesLoading;
+
+  if (tambonLoading || (!sources && sourcesLoading)) {
     return <LoadingScreen theme={theme} />;
   }
 
@@ -65,6 +71,7 @@ export default function App() {
 
   return (
     <div style={theme.base}>
+      <TopProgressBar active={isBackgroundRefresh} theme={theme} />
       {/* ── PWA Install Banner (พอร์ตจากต้นแบบนครป่าหมาก) ── */}
       {showInstallBanner && installPrompt && (
         <div style={{

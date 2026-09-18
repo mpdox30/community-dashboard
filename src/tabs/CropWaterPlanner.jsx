@@ -3,6 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer,
 } from "recharts";
 import { fmt } from "../lib/status";
+import { buildMonthlyClimatology } from "../lib/climatology";
 
 /* ─────────────────────────────────────────────
    CropWaterPlanner — เครื่องมือจำลอง "ถ้า…จะเป็นอย่างไร" (what-if water-use simulator)
@@ -58,20 +59,7 @@ function daysBetween(a, b) {
 // ── ค่าเฉลี่ยฝนรายเดือน (climatology) จากข้อมูลฝนรายวันจริงหลายปีของตำบล ──
 // rainMonthly: { "YYYY-MM": มม.รวมเดือนนั้น } จาก useRainfall() — เฉลี่ยทุกปีที่มีข้อมูลของเดือนเดียวกัน
 // (ต่างจากต้นแบบที่ hardcode ค่าเฉลี่ยภูมิอากาศคงที่ทั้งไฟล์ — ที่นี่คำนวณจากข้อมูลจริงของตำบลเอง)
-function buildMonthlyClimatology(rainMonthly) {
-  const sums = Array(13).fill(0);
-  const counts = Array(13).fill(0);
-  Object.entries(rainMonthly ?? {}).forEach(([ym, mm]) => {
-    const month = parseInt(ym.slice(5, 7), 10);
-    if (month >= 1 && month <= 12 && typeof mm === "number") {
-      sums[month] += mm;
-      counts[month] += 1;
-    }
-  });
-  const avg = {};
-  for (let m = 1; m <= 12; m++) avg[m] = counts[m] > 0 ? sums[m] / counts[m] : 0;
-  return avg;
-}
+// buildMonthlyClimatology ย้ายไปอยู่ที่ ../lib/climatology.js แล้ว (ใช้ร่วมกับ anomaly badge ในแท็บฝน) — ตัวแปรพฤติกรรม/ผลลัพธ์เหมือนเดิมทุกประการ
 
 // ══ Water balance model (Level 2: หักฝนเฉลี่ยรายเดือน, ETc คงที่ตลอดฤดู) ══
 // พอร์ตมาจาก simulateScenario ของต้นแบบตรงๆ ทั้งอัลกอริทึม — เปลี่ยนแค่รับ monthlyRainAvg เป็นพารามิเตอร์

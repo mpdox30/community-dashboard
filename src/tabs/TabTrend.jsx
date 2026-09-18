@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ComposedChart, Line, Bar, BarChart, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { fmtDate, getStatus, STATUS_CONFIG } from "../lib/status";
+import { exportCsv } from "../lib/exportCsv";
 
 const LINE_COLORS = ["#0369a1", "#dc2626", "#059669", "#7c3aed", "#ea580c", "#0891b2", "#a16207", "#be185d"];
 
@@ -47,8 +48,18 @@ export default function TabTrend({ storageSources, ts, rainDaily, rainMonthly, t
 
   return (
     <div>
-      <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 8, fontFamily: FONT }}>
-        📈 แนวโน้มระดับน้ำ (%) เทียบกับฝนรายเดือน
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, fontFamily: FONT }}>
+          📈 แนวโน้มระดับน้ำ (%) เทียบกับฝนรายเดือน
+        </div>
+        <button onClick={() => exportCsv(
+          "แนวโน้มระดับน้ำ.csv",
+          [{ label: "วันที่", key: "iso" }, { label: "ฝนรายเดือน (มม.)", key: "rain" }, ...storageSources.map(s => ({ label: s.name, key: s.id }))],
+          chartData
+        )} style={{
+          border: "1.5px solid #cbd5e1", background: "#fff", borderRadius: 8, padding: "6px 12px",
+          fontSize: 12, cursor: "pointer", fontFamily: FONT, color: C.navy,
+        }}>📥 ส่งออก CSV</button>
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>

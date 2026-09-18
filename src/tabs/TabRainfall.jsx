@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
-import { BarChart, Bar, ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer, Cell } from "recharts";
 import { RAIN_THRESHOLDS, getRainThreshold } from "../lib/status";
+import { buildMonthlyClimatology } from "../lib/climatology";
+import { exportCsv } from "../lib/exportCsv";
 
 const PERIOD_DAYS = { "30d": 30, "90d": 90, "1y": 365, all: Infinity };
+const TH_MON_SHORT = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 
 export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainForecast, rainLoading, rainError, theme }) {
   const { C, FONT } = theme;
@@ -39,6 +42,36 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
   const now = rainDaily.length ? rainDaily[rainDaily.length - 1].iso : null;
   const thisMonthKey = now?.slice(0, 7);
   const thisYearKey = now?.slice(0, 4);
+
+  // ── ตรวจจับฝนผิดปกติ (แล้ง/เกินค่าเฉลี่ย) — เทียบฝนเดือนปัจจุบันกับค่าเฉลี่ยภูมิอากาศของเดือน
+  // เดียวกันจากปีอื่นๆ ทั้งหมด (ไม่รวมเดือนปัจจุบันเองกันข้อมูลบางส่วนของเดือนนี้ไปเอนเอียงค่าเฉลี่ย)
+  // ใช้ buildMonthlyClimatology ตัวเดียวกับที่ CropWaterPlanner ใช้จำลองสมดุลน้ำอยู่แล้ว (ย้ายไป lib/climatology.js)
+  const monthlyRainAvg = useMemo(() => {
+    const historical = Object.fromEntries(Object.entries(rainMonthly).filter(([ym]) => ym !== thisMonthKey));
+    return buildMonthlyClimatology(historical);
+  }, [rainMonthly, thisMonthKey]);
+  const thisMonthNum = thisMonthKey ? parseInt(thisMonthKey.slice(5, 7), 10) : null;
+  const thisMonthActual = thisMonthKey ? (rainMonthly[thisMonthKey] ?? 0) : null;
+  const thisMonthAvg = thisMonthNum != null ? monthlyRainAvg[thisMonthNum] : null;
+  const anomalyPct = (thisMonthAvg && thisMonthAvg > 0 && thisMonthActual != null)
+    ? Math.round(((thisMonthActual - thisMonthAvg) / thisMonthAvg) * 100)
+    : null;
+
+  // ── เปรียบเทียบฝนปีนี้กับปีที่แล้ว รายเดือน ──
+  const yoyData = useMemo(() => {
+    if (!thisYearKey) return [];
+    const lastYearKey = String(Number(thisYearKey) - 1);
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      const mm = String(m).padStart(2, "0");
+      return {
+        month: TH_MON_SHORT[m],
+        thisYear: rainMonthly[`${thisYearKey}-${mm}`] ?? null,
+        lastYear: rainMonthly[`${lastYearKey}-${mm}`] ?? null,
+      };
+    });
+  }, [rainMonthly, thisYearKey]);
+
   const kpi = [
     { icon: "📅", label: "ฝนเดือนนี้", val: `${rainMonthly[thisMonthKey] ?? 0} มม.` },
     { icon: "🗓️", label: "ฝนปีนี้", val: `${rainYearly[thisYearKey] ?? 0} มม.` },
@@ -58,27 +91,46 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
         ))}
       </div>
 
+      {anomalyPct != null && Math.abs(anomalyPct) >= 25 && (
+        <div style={{
+          background: anomalyPct < 0 ? "#fff7ed" : "#eff6ff",
+          border: `1.5px solid ${anomalyPct < 0 ? "#fdba74" : "#93c5fd"}`,
+          borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12.5, fontFamily: FONT,
+          color: anomalyPct < 0 ? "#9a3412" : "#1e40af",
+        }}>
+          {anomalyPct < 0
+            ? `🏜️ ฝนเดือนนี้ต่ำกว่าค่าเฉลี่ยย้อนหลัง ${Math.abs(anomalyPct)}% (${thisMonthActual} มม. เทียบเฉลี่ย ${Math.round(thisMonthAvg)} มม.)`
+            : `🌧️ ฝนเดือนนี้สูงกว่าค่าเฉลี่ยย้อนหลัง ${anomalyPct}% (${thisMonthActual} มม. เทียบเฉลี่ย ${Math.round(thisMonthAvg)} มม.)`}
+        </div>
+      )}
+
       {/* ── ส่วนที่ 1: ฝนสะสม/ฝนย้อนหลัง (รายวัน / สะสม 3 วัน / รายเดือน / รายปี) ── */}
       <div style={{ fontWeight: 700, fontSize: 14, color: C.navy, marginBottom: 8, fontFamily: FONT }}>
         🌧️ ฝนสะสม (ข้อมูลย้อนหลัง)
       </div>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
-        {[{ id: "daily", label: "รายวัน" }, { id: "cum3", label: "สะสม 3 วัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }].map(v => (
+      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        {[{ id: "daily", label: "รายวัน" }, { id: "cum3", label: "สะสม 3 วัน" }, { id: "monthly", label: "รายเดือน" }, { id: "yearly", label: "รายปี" }, { id: "yoy", label: "เทียบปีต่อปี" }].map(v => (
           <button key={v.id} onClick={() => setView(v.id)} style={{
             border: `1.5px solid ${view === v.id ? C.sky : "#cbd5e1"}`, background: view === v.id ? "#e0f2fe" : "#fff",
             borderRadius: 8, padding: "6px 14px", fontSize: 12, cursor: "pointer", fontFamily: FONT,
             fontWeight: view === v.id ? 700 : 400,
           }}>{v.label}</button>
         ))}
-        {(view === "daily" || view === "cum3") && (
-          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ marginLeft: "auto", fontFamily: FONT, fontSize: 12, borderRadius: 8, border: "1.5px solid #cbd5e1", padding: "4px 8px" }}>
-            <option value="30d">30 วัน</option>
-            <option value="90d">90 วัน</option>
-            <option value="1y">1 ปี</option>
-            <option value="all">ทั้งหมด</option>
-          </select>
-        )}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          {(view === "daily" || view === "cum3") && (
+            <select value={period} onChange={e => setPeriod(e.target.value)} style={{ fontFamily: FONT, fontSize: 12, borderRadius: 8, border: "1.5px solid #cbd5e1", padding: "4px 8px" }}>
+              <option value="30d">30 วัน</option>
+              <option value="90d">90 วัน</option>
+              <option value="1y">1 ปี</option>
+              <option value="all">ทั้งหมด</option>
+            </select>
+          )}
+          <button onClick={() => exportCsv("ฝนรายวัน.csv", [{ label: "วันที่", key: "iso" }, { label: "ฝน (มม.)", key: "rain" }], rainDaily)} style={{
+            border: "1.5px solid #cbd5e1", background: "#fff", borderRadius: 8, padding: "6px 12px",
+            fontSize: 12, cursor: "pointer", fontFamily: FONT, color: C.navy,
+          }}>📥 ส่งออก CSV</button>
+        </div>
       </div>
 
       <div style={{ background: C.card, borderRadius: 12, padding: "16px 8px", boxShadow: "0 1px 6px rgba(0,0,0,0.06)" }}>
@@ -111,13 +163,23 @@ export default function TabRainfall({ rainDaily, rainMonthly, rainYearly, rainFo
               <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Bar dataKey="mm" name="ฝนรวมรายเดือน (มม.)" fill="#0369a1" />
             </BarChart>
-          ) : (
+          ) : view === "yearly" ? (
             <BarChart data={yearlyArr}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="y" fontSize={11} />
               <YAxis fontSize={11} unit="mm" />
               <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Bar dataKey="mm" name="ฝนรวมรายปี (มม.)" fill="#0c4a6e" />
+            </BarChart>
+          ) : (
+            <BarChart data={yoyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" fontSize={10} />
+              <YAxis fontSize={11} unit="mm" />
+              <Tooltip contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontFamily: FONT, fontSize: 11 }} />
+              <Bar dataKey="lastYear" name={`ปี ${thisYearKey ? Number(thisYearKey) - 1 + 543 : "ก่อนหน้า"}`} fill="#94a3b8" />
+              <Bar dataKey="thisYear" name={`ปี ${thisYearKey ? Number(thisYearKey) + 543 : "นี้"}`} fill="#0369a1" />
             </BarChart>
           )}
         </ResponsiveContainer>
