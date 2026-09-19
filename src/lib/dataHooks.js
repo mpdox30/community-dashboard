@@ -164,14 +164,20 @@ export function useLevelTimeSeries(sourceIds) {
     if (!sourceIds || sourceIds.length === 0) { setTs([]); setLoading(false); return; }
     let alive = true;
     setLoading(true);
-    supabase
-      .from("v_water_level_daily_public")
-      .select("source_id, reading_date, level_pct")
-      .in("source_id", sourceIds)
-      .order("reading_date", { ascending: true })
-      .then(({ data, error }) => {
+    // ระดับน้ำรายวันสะสมหลายแหล่ง x หลายวันมีโอกาสเกิน 1000 แถว (db.max_rows ของ
+    // PostgREST) ต้อง page เหมือน useRainfall ด้านล่าง (และเหมือนที่แก้แล้วใน
+    // water-dashboard/App.jsx ของนครป่าหมาก) ไม่งั้นแถวท้ายสุด (วันที่ล่าสุด) จะถูก
+    // ตัดหายไปเงียบๆ โดยไม่มี error — ทำให้กราฟย้อนหลังจบที่วันเก่ากว่าค่า "ปัจจุบัน"
+    // จริงจาก v_source_risk_forecast (ตัวเลข % ที่แสดงกับปลายเส้นกราฟเลยดูไม่ตรงกัน)
+    supabaseFetchAllPages(() =>
+      supabase
+        .from("v_water_level_daily_public")
+        .select("source_id, reading_date, level_pct")
+        .in("source_id", sourceIds)
+        .order("reading_date", { ascending: true })
+    )
+      .then(data => {
         if (!alive) return;
-        if (error) { setTs([]); return; }
         const byDate = {};
         for (const row of data ?? []) {
           if (row.level_pct === null) continue;
@@ -180,6 +186,7 @@ export function useLevelTimeSeries(sourceIds) {
         }
         setTs(Object.values(byDate).sort((a, b) => a.iso.localeCompare(b.iso)));
       })
+      .catch(() => { if (alive) setTs([]); })
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [JSON.stringify(sourceIds)]);
