@@ -93,7 +93,7 @@ export default function SourceDetailCard({ source, theme, history, connectionLab
                   <LineChart data={history} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="iso" tickFormatter={fmtDate} fontSize={9} minTickGap={26} />
-                    <YAxis domain={[0, 100]} fontSize={10} unit="%" />
+                    <YAxis domain={[0, (dataMax) => Math.max(100, Math.ceil(dataMax / 10) * 10)]} fontSize={10} unit="%" />
                     <Tooltip labelFormatter={fmtDate} formatter={v => [`${v}%`, "ระดับน้ำ"]} contentStyle={{ fontFamily: FONT, fontSize: 11 }} />
                     <ReferenceLine y={100} stroke="#22c55e" strokeDasharray="4 4" label={{ value: "เต็มความจุ", position: "insideTopRight", fontSize: 9, fill: "#16a34a" }} />
                     <ReferenceLine y={20} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "วิกฤต", position: "insideBottomRight", fontSize: 9, fill: "#b91c1c" }} />

@@ -81,7 +81,7 @@ export default function TabTrend({ storageSources, ts, rainDaily, rainMonthly, t
             <ComposedChart data={chartData} margin={{ top: 6, right: 10, left: -10, bottom: 6 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="iso" tickFormatter={fmtDate} fontSize={10} minTickGap={30} />
-              <YAxis yAxisId="pct" fontSize={11} unit="%" domain={[0, 100]} />
+              <YAxis yAxisId="pct" fontSize={11} unit="%" domain={[0, (dataMax) => Math.max(100, Math.ceil(dataMax / 10) * 10)]} />
               <YAxis yAxisId="rain" orientation="right" fontSize={11} unit="mm" />
               <Tooltip labelFormatter={fmtDate} contentStyle={{ fontFamily: FONT, fontSize: 12 }} />
               <Legend wrapperStyle={{ fontFamily: FONT, fontSize: 11 }} />
